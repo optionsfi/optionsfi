@@ -9,7 +9,7 @@ import { Connection, PublicKey, Keypair } from '@solana/web3.js';
 import { getOrCreateAssociatedTokenAccount, mintTo, getMint } from '@solana/spl-token';
 
 // Mock NVDAx token mint on devnet - this is the actual underlying mint used by the vault
-const MOCK_NVDAX_MINT = new PublicKey("D6wYCkoFg1PyQn1fX21Vv2Z1h1M5oSSK26AHtRvahdTB");
+const MOCK_NVDAX_MINT = new PublicKey("G5VWnnWRxVvuTqRCEQNNGEdRmS42hMTyh8DAN9MHecLn");
 
 // Mint authority private key (from environment variable)
 // This should be the keypair that created the mock token (JSON array format)

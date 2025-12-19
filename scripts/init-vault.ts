@@ -8,13 +8,11 @@ import {
     Connection,
     Keypair,
     PublicKey,
-    Transaction,
-    sendAndConfirmTransaction,
     clusterApiUrl,
     SystemProgram,
     SYSVAR_RENT_PUBKEY,
 } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction } from "@solana/spl-token";
+import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from "@solana/spl-token";
 import { Program, AnchorProvider, Wallet, BN } from "@coral-xyz/anchor";
 import * as fs from "fs";
 import * as path from "path";
@@ -34,7 +32,7 @@ async function main() {
     console.log("Authority:", payer.publicKey.toBase58());
 
     // Load mint addresses from .env.mints
-    const envPath = path.join(__dirname, "../.env.mints");
+    const envPath = path.join(__dirname, ".env.mints");
     if (!fs.existsSync(envPath)) {
         console.error("Error: .env.mints not found. Run create-nvdax.ts and create-usdc.ts first.");
         process.exit(1);
@@ -64,31 +62,22 @@ async function main() {
     const idl = JSON.parse(fs.readFileSync(idlPath, "utf-8"));
     const program = new Program(idl, provider);
 
-    // Derive PDAs
+    // Derive vault PDA
     const [vaultPda, vaultBump] = PublicKey.findProgramAddressSync(
         [Buffer.from("vault"), Buffer.from(ASSET_ID)],
         VAULT_PROGRAM_ID
     );
-    const [shareMintPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("shares"), vaultPda.toBuffer()],
-        VAULT_PROGRAM_ID
-    );
-    const [vaultTokenAccountPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("vault_tokens"), vaultPda.toBuffer()],
-        VAULT_PROGRAM_ID
-    );
-
     console.log("\nVault PDA:", vaultPda.toBase58());
-    console.log("Share Mint PDA:", shareMintPda.toBase58());
-    console.log("Vault Token Account PDA:", vaultTokenAccountPda.toBase58());
 
-    // Create premium token account (ATA for vault authority)
-    const premiumTokenAccount = await getAssociatedTokenAddress(
-        usdcMint,
-        vaultPda,
-        true // allowOwnerOffCurve for PDA
-    );
-    console.log("Premium Token Account:", premiumTokenAccount.toBase58());
+    // Generate new keypairs for accounts that get initialized
+    // The program uses `init` without seeds for these, so they need to be new keypairs
+    const shareMintKeypair = Keypair.generate();
+    const vaultTokenAccountKeypair = Keypair.generate();
+    const premiumTokenAccountKeypair = Keypair.generate();
+
+    console.log("Share Mint:", shareMintKeypair.publicKey.toBase58());
+    console.log("Vault Token Account:", vaultTokenAccountKeypair.publicKey.toBase58());
+    console.log("Premium Token Account:", premiumTokenAccountKeypair.publicKey.toBase58());
 
     // Check if vault already exists
     const vaultAccount = await connection.getAccountInfo(vaultPda);
@@ -100,29 +89,39 @@ async function main() {
     // Initialize vault
     console.log("\nInitializing vault...");
 
-    const tx = await program.methods
-        .initializeVault(ASSET_ID, UTILIZATION_CAP_BPS)
-        .accounts({
-            vault: vaultPda,
-            authority: payer.publicKey,
-            underlyingMint: nvdaxMint,
-            shareMint: shareMintPda,
-            vaultTokenAccount: vaultTokenAccountPda,
-            premiumMint: usdcMint,
-            premiumTokenAccount: premiumTokenAccount,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            systemProgram: SystemProgram.programId,
-            rent: SYSVAR_RENT_PUBKEY,
-        })
-        .rpc();
+    try {
+        const tx = await program.methods
+            .initializeVault(ASSET_ID, UTILIZATION_CAP_BPS)
+            .accounts({
+                vault: vaultPda,
+                authority: payer.publicKey,
+                underlyingMint: nvdaxMint,
+                shareMint: shareMintKeypair.publicKey,
+                vaultTokenAccount: vaultTokenAccountKeypair.publicKey,
+                premiumMint: usdcMint,
+                premiumTokenAccount: premiumTokenAccountKeypair.publicKey,
+                tokenProgram: TOKEN_PROGRAM_ID,
+                systemProgram: SystemProgram.programId,
+                rent: SYSVAR_RENT_PUBKEY,
+            })
+            .signers([shareMintKeypair, vaultTokenAccountKeypair, premiumTokenAccountKeypair])
+            .rpc();
 
-    console.log("Vault initialized:", tx);
-    console.log("\n✅ NVDAx Vault is ready!");
-    console.log("\nVault Address:", vaultPda.toBase58());
+        console.log("Vault initialized:", tx);
+        console.log("\n✅ NVDAx Vault is ready!");
+        console.log("\nVault Address:", vaultPda.toBase58());
 
-    // Save vault address
-    fs.appendFileSync(envPath, `VAULT_PDA=${vaultPda.toBase58()}\n`);
-    fs.appendFileSync(envPath, `SHARE_MINT=${shareMintPda.toBase58()}\n`);
+        // Save addresses
+        fs.appendFileSync(envPath, `VAULT_PDA=${vaultPda.toBase58()}\n`);
+        fs.appendFileSync(envPath, `SHARE_MINT=${shareMintKeypair.publicKey.toBase58()}\n`);
+        fs.appendFileSync(envPath, `VAULT_TOKEN_ACCOUNT=${vaultTokenAccountKeypair.publicKey.toBase58()}\n`);
+        fs.appendFileSync(envPath, `PREMIUM_TOKEN_ACCOUNT=${premiumTokenAccountKeypair.publicKey.toBase58()}\n`);
+    } catch (error: any) {
+        console.error("Error initializing vault:", error.message);
+        if (error.logs) {
+            console.error("Logs:", error.logs);
+        }
+    }
 }
 
 main().catch(console.error);

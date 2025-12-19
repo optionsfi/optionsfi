@@ -9,10 +9,10 @@ export interface XStock {
 }
 
 // xStock mint for on-chain operations
-export const MOCK_MINT = new PublicKey("D6wYCkoFg1PyQn1fX21Vv2Z1h1M5oSSK26AHtRvahdTB");
+export const MOCK_MINT = new PublicKey("G5VWnnWRxVvuTqRCEQNNGEdRmS42hMTyh8DAN9MHecLn");
 
 // USDC mint for on-chain operations
-export const QUOTE_MINT = new PublicKey("EnDeaApTGfsWxMwLbmJsTh1gSLVR8gJG26dqoDjfPVag");
+export const QUOTE_MINT = new PublicKey("5z8s3k7mkmH1DKFPvjkVd8PxapEeYaPJjqQTJeUEN1i4");
 export const QUOTE_LOGO = "/usdc_logo.png"; // Local USDC logo
 
 // Real NVDAx mainnet mint for price data

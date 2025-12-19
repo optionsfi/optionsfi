@@ -1,5 +1,5 @@
 /**
- * Create Mock NVDAx Token with Metadata
+ * Create Mock NVDAx Token with Metadata (mpl-token-metadata v3)
  * 
  * Supply: 125,000 tokens (6 decimals = 125,000,000,000 base units)
  * Metadata: Mock NVDAx with logo
@@ -9,20 +9,25 @@ import {
     Connection,
     Keypair,
     PublicKey,
-    Transaction,
-    sendAndConfirmTransaction,
     clusterApiUrl,
 } from "@solana/web3.js";
 import {
     createMint,
     getOrCreateAssociatedTokenAccount,
     mintTo,
-    TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
+import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import {
-    createCreateMetadataAccountV3Instruction,
-    PROGRAM_ID as METADATA_PROGRAM_ID,
+    createMetadataAccountV3,
+    mplTokenMetadata,
 } from "@metaplex-foundation/mpl-token-metadata";
+import {
+    createSignerFromKeypair,
+    signerIdentity,
+    none,
+    some,
+} from "@metaplex-foundation/umi";
+import { fromWeb3JsKeypair, fromWeb3JsPublicKey } from "@metaplex-foundation/umi-web3js-adapters";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -33,7 +38,10 @@ const MAX_SUPPLY_BASE = BigInt(MAX_SUPPLY) * BigInt(10 ** DECIMALS);
 // Metadata for NVDAx
 const TOKEN_NAME = "Mock NVDAx";
 const TOKEN_SYMBOL = "NVDAx";
-const TOKEN_URI = "https://raw.githubusercontent.com/feeniks01/optionsfi/main/app/public/metadata/nvdax.json";
+const TOKEN_URI = "https://raw.githubusercontent.com/feeniks01/optionsfi/master/app/public/metadata/nvdax.json";
+
+// Helper to wait
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function main() {
     // Load wallet
@@ -46,6 +54,13 @@ async function main() {
     // Connect to devnet
     const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 
+    // Create Umi instance
+    const umi = createUmi(clusterApiUrl("devnet"))
+        .use(mplTokenMetadata());
+    const umiKeypair = fromWeb3JsKeypair(payer);
+    const signer = createSignerFromKeypair(umi, umiKeypair);
+    umi.use(signerIdentity(signer));
+
     // Create mint
     console.log("Creating NVDAx mint...");
     const mint = await createMint(
@@ -57,47 +72,46 @@ async function main() {
     );
     console.log("NVDAx Mint:", mint.toBase58());
 
-    // Create metadata
+    // Wait for mint to be confirmed across network
+    console.log("Waiting for mint confirmation...");
+    await sleep(3000);
+
+    // Verify mint exists
+    const mintInfo = await connection.getAccountInfo(mint);
+    if (!mintInfo) {
+        throw new Error("Mint account not found after creation");
+    }
+    console.log("Mint confirmed, data length:", mintInfo.data.length);
+
+    // Create metadata using Umi
     console.log("Creating metadata...");
-    const [metadataPda] = PublicKey.findProgramAddressSync(
-        [
-            Buffer.from("metadata"),
-            METADATA_PROGRAM_ID.toBuffer(),
-            mint.toBuffer(),
-        ],
-        METADATA_PROGRAM_ID
-    );
 
-    const metadataData = {
-        name: TOKEN_NAME,
-        symbol: TOKEN_SYMBOL,
-        uri: TOKEN_URI,
-        sellerFeeBasisPoints: 0,
-        creators: null,
-        collection: null,
-        uses: null,
-    };
+    const mintUmi = fromWeb3JsPublicKey(mint);
 
-    const createMetadataIx = createCreateMetadataAccountV3Instruction(
-        {
-            metadata: metadataPda,
-            mint: mint,
-            mintAuthority: payer.publicKey,
-            payer: payer.publicKey,
-            updateAuthority: payer.publicKey,
-        },
-        {
-            createMetadataAccountArgsV3: {
-                data: metadataData,
-                isMutable: true,
-                collectionDetails: null,
+    try {
+        await createMetadataAccountV3(umi, {
+            mint: mintUmi,
+            mintAuthority: signer,
+            payer: signer,
+            updateAuthority: signer.publicKey,
+            data: {
+                name: TOKEN_NAME,
+                symbol: TOKEN_SYMBOL,
+                uri: TOKEN_URI,
+                sellerFeeBasisPoints: 0,
+                creators: none(),
+                collection: none(),
+                uses: none(),
             },
-        }
-    );
+            isMutable: true,
+            collectionDetails: none(),
+        }).sendAndConfirm(umi);
 
-    const tx = new Transaction().add(createMetadataIx);
-    const sig = await sendAndConfirmTransaction(connection, tx, [payer]);
-    console.log("Metadata created:", sig);
+        console.log("Metadata created!");
+    } catch (error: any) {
+        console.error("Metadata creation failed:", error.message);
+        console.log("Continuing without metadata...");
+    }
 
     // Create token account and mint max supply
     console.log("Minting max supply...");
@@ -119,7 +133,7 @@ async function main() {
     console.log(`Minted ${MAX_SUPPLY.toLocaleString()} NVDAx to ${tokenAccount.address.toBase58()}`);
 
     // Save mint address
-    const outputPath = path.join(__dirname, "../.env.mints");
+    const outputPath = path.join(__dirname, ".env.mints");
     fs.appendFileSync(outputPath, `NVDAX_MINT=${mint.toBase58()}\n`);
     console.log(`\nSaved to ${outputPath}`);
 }

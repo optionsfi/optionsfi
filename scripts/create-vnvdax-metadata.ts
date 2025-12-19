@@ -1,21 +1,30 @@
 /**
- * Create Metadata for vNVDAx Share Token
+ * Create Metadata for vNVDAx Share Token (mpl-token-metadata v3)
  * 
  * Run this AFTER init-vault.ts to add metadata to the share mint
+ * 
+ * NOTE: This requires the vault program to have a create_share_metadata instruction
+ * since the share mint authority is the vault PDA.
  */
 
 import {
     Connection,
     Keypair,
     PublicKey,
-    Transaction,
-    sendAndConfirmTransaction,
     clusterApiUrl,
 } from "@solana/web3.js";
+import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import {
-    createCreateMetadataAccountV3Instruction,
-    PROGRAM_ID as METADATA_PROGRAM_ID,
+    createMetadataAccountV3,
+    mplTokenMetadata,
+    MPL_TOKEN_METADATA_PROGRAM_ID,
 } from "@metaplex-foundation/mpl-token-metadata";
+import {
+    createSignerFromKeypair,
+    signerIdentity,
+    publicKey as umiPublicKey,
+} from "@metaplex-foundation/umi";
+import { fromWeb3JsKeypair, fromWeb3JsPublicKey, toWeb3JsPublicKey } from "@metaplex-foundation/umi-web3js-adapters";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -60,60 +69,29 @@ async function main() {
     }
 
     // Create metadata PDA
+    const metaplexProgramId = toWeb3JsPublicKey(MPL_TOKEN_METADATA_PROGRAM_ID);
     const [metadataPda] = PublicKey.findProgramAddressSync(
         [
             Buffer.from("metadata"),
-            METADATA_PROGRAM_ID.toBuffer(),
+            metaplexProgramId.toBuffer(),
             shareMintPda.toBuffer(),
         ],
-        METADATA_PROGRAM_ID
+        metaplexProgramId
     );
 
     // Check if metadata already exists
     const metadataInfo = await connection.getAccountInfo(metadataPda);
     if (metadataInfo) {
         console.log("Metadata already exists for vNVDAx share token!");
+        console.log("Metadata PDA:", metadataPda.toBase58());
         process.exit(0);
     }
 
-    console.log("Creating vNVDAx share token metadata...");
-
-    const metadataData = {
-        name: TOKEN_NAME,
-        symbol: TOKEN_SYMBOL,
-        uri: TOKEN_URI,
-        sellerFeeBasisPoints: 0,
-        creators: null,
-        collection: null,
-        uses: null,
-    };
-
-    // Note: The vault PDA is the mint authority for share tokens
-    // We need to sign with the vault authority (payer) who can update via program
-    // For now, we'll create metadata with payer as the authority since vault is PDA
-    const createMetadataIx = createCreateMetadataAccountV3Instruction(
-        {
-            metadata: metadataPda,
-            mint: shareMintPda,
-            mintAuthority: vaultPda, // Vault PDA is mint authority
-            payer: payer.publicKey,
-            updateAuthority: payer.publicKey,
-        },
-        {
-            createMetadataAccountArgsV3: {
-                data: metadataData,
-                isMutable: true,
-                collectionDetails: null,
-            },
-        }
-    );
-
-    // This will fail because vault PDA is mint authority and can't sign directly
-    // We need to call this via the vault program or use a different approach
-    console.log("\nNote: vNVDAx share metadata requires vault program integration.");
-    console.log("The vault program's create_share_metadata instruction should be used.");
+    console.log("\n⚠️  vNVDAx share metadata requires the vault program's create_share_metadata instruction.");
+    console.log("The share mint authority is the vault PDA, which requires a CPI call to create metadata.");
     console.log("\nShare Mint:", shareMintPda.toBase58());
-    console.log("Metadata PDA:", metadataPda.toBase58());
+    console.log("Metadata PDA (to be created):", metadataPda.toBase58());
+    console.log("\nTo create metadata, call the vault program's create_share_metadata instruction.");
 }
 
 main().catch(console.error);

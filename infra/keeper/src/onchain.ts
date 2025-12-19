@@ -16,7 +16,7 @@ import * as path from "path";
 
 // Will be updated after program deployment
 const VAULT_PROGRAM_ID = new PublicKey(
-    process.env.VAULT_PROGRAM_ID || "11111111111111111111111111111111"
+    process.env.VAULT_PROGRAM_ID || "A4jgqct3bwTwRmHECHdPpbH3a8ksaVb7rny9pMUGFo94"
 );
 
 // ============================================================================

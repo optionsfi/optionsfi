@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer, MintTo, Burn};
 
-declare_id!("7WHJ1bpNs8pifws5g2wjSD1D4sf3xjT7MNYWz7At4ozn"); // Will be replaced after keygen
+declare_id!("A4jgqct3bwTwRmHECHdPpbH3a8ksaVb7rny9pMUGFo94");
 
 // Metaplex Token Metadata Program ID
 const METADATA_PROGRAM_ID: Pubkey = Pubkey::new_from_array([

@@ -24,7 +24,7 @@ export interface VaultConfig {
 }
 
 // Using devnet USDC as placeholder
-const DEVNET_USDC = new PublicKey("D6wYCkoFg1PyQn1fX21Vv2Z1h1M5oSSK26AHtRvahdTB");
+const DEVNET_USDC = new PublicKey("5z8s3k7mkmH1DKFPvjkVd8PxapEeYaPJjqQTJeUEN1i4");
 
 export const VAULTS: Record<string, VaultConfig> = {
     nvdax: {

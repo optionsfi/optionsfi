@@ -5,11 +5,12 @@
         "create-nvdax": "npx ts-node create-nvdax.ts",
         "create-usdc": "npx ts-node create-usdc.ts",
         "init-vault": "npx ts-node init-vault.ts",
+        "add-metadata": "npx ts-node add-metadata.ts",
         "setup": "npm run create-nvdax && npm run create-usdc && npm run init-vault"
     },
     "dependencies": {
         "@coral-xyz/anchor": "^0.32.0",
-        "@metaplex-foundation/mpl-token-metadata": "^3.3.0",
+        "@metaplex-foundation/mpl-token-metadata": "^2.13.0",
         "@solana/spl-token": "^0.4.0",
         "@solana/web3.js": "^1.95.0",
         "ts-node": "^10.9.0",
