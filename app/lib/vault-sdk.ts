@@ -23,34 +23,14 @@ export interface VaultConfig {
     underlyingMint: PublicKey;
 }
 
-// Using devnet USDC as placeholder
-const DEVNET_USDC = new PublicKey("5z8s3k7mkmH1DKFPvjkVd8PxapEeYaPJjqQTJeUEN1i4");
+// NVDAx token mint (the actual token users deposit)
+const NVDAX_MINT = new PublicKey("G5VWnnWRxVvuTqRCEQNNGEdRmS42hMTyh8DAN9MHecLn");
 
 export const VAULTS: Record<string, VaultConfig> = {
     nvdax: {
         symbol: "NVDAx",
         assetId: "NVDAx",
-        underlyingMint: DEVNET_USDC,
-    },
-    tslax: {
-        symbol: "TSLAx",
-        assetId: "TSLAx",
-        underlyingMint: DEVNET_USDC,
-    },
-    spyx: {
-        symbol: "SPYx",
-        assetId: "SPYx",
-        underlyingMint: DEVNET_USDC,
-    },
-    aaplx: {
-        symbol: "AAPLx",
-        assetId: "AAPLx",
-        underlyingMint: DEVNET_USDC,
-    },
-    metax: {
-        symbol: "METAx",
-        assetId: "METAx",
-        underlyingMint: DEVNET_USDC,
+        underlyingMint: NVDAX_MINT,
     },
 };
 

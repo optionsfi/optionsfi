@@ -4,7 +4,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AppWalletProvider from "../components/AppWalletProvider";
 import Navbar from "../components/Navbar";
-import LiveTicker from "../components/LiveTicker";
 import ToastProvider from "../components/ToastProvider";
 import { Analytics } from "@vercel/analytics/next";
 import { validateBypassToken } from "../lib/auth";
@@ -36,12 +35,12 @@ export default async function RootLayout({
 }>) {
   // Check if coming soon page should be shown
   const showComingSoon = process.env.NEXT_PUBLIC_SHOW_COMING_SOON === "true";
-  
+
   // Check for valid bypass token
   const cookieStore = await cookies();
   const bypassToken = cookieStore.get('bypass_token')?.value;
   const hasValidBypass = validateBypassToken(bypassToken);
-  
+
   // Show navbar/ticker if coming soon is disabled OR user has bypass token
   const showNavbar = !showComingSoon || hasValidBypass;
 
@@ -55,7 +54,6 @@ export default async function RootLayout({
             {showNavbar && (
               <>
                 <Navbar />
-                <LiveTicker />
               </>
             )}
             {children}

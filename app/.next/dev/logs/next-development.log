@@ -1,1 +1,222 @@
-[00:00:01.424] Server  LOG      ✓ Ready in 1283ms
+[00:00:01.469] Server  LOG     ✓ Ready in 1285ms
+[00:00:09.021] Server  ERROR   ⨯ ./app/app/layout.tsx:7:1
+Module not found: Can't resolve '../components/LiveTicker'
+   5 | import AppWalletProvider from "../components/AppWalletProvider";
+   6 | import Navbar from "../components/Navbar";
+>  7 | import LiveTicker from "../components/LiveTicker";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import ToastProvider from "../components/ToastProvider";
+   9 | import { Analytics } from "@vercel/analytics/next";
+  10 | import { validateBypassToken } from "../lib/auth";
+
+
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[00:00:09.695] Browser ERROR   uncaughtError: Error: ./app/app/layout.tsx:7:1
+Module not found: Can't resolve '../components/LiveTicker'
+   5 | import AppWalletProvider from "../components/AppWalletProvider";
+   6 | import Navbar from "../components/Navbar";
+>  7 | import LiveTicker from "../components/LiveTicker";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import ToastProvider from "../components/ToastProvider";
+   9 | import { Analytics } from "@vercel/analytics/next";
+  10 | import { validateBypassToken } from "../lib/auth";
+
+
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[00:00:09.859] Browser ERROR   ./app/app/layout.tsx:7:1
+Module not found: Can't resolve '../components/LiveTicker'
+   5 | import AppWalletProvider from "../components/AppWalletProvider";
+   6 | import Navbar from "../components/Navbar";
+>  7 | import LiveTicker from "../components/LiveTicker";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import ToastProvider from "../components/ToastProvider";
+   9 | import { Analytics } from "@vercel/analytics/next";
+  10 | import { validateBypassToken } from "../lib/auth";
+
+https://nextjs.org/docs/messages/module-not-found
+[00:00:10.184] Browser ERROR   ./app/app/layout.tsx:7:1
+Module not found: Can't resolve '../components/LiveTicker'
+   5 | import AppWalletProvider from "../components/AppWalletProvider";
+   6 | import Navbar from "../components/Navbar";
+>  7 | import LiveTicker from "../components/LiveTicker";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import ToastProvider from "../components/ToastProvider";
+   9 | import { Analytics } from "@vercel/analytics/next";
+  10 | import { validateBypassToken } from "../lib/auth";
+
+https://nextjs.org/docs/messages/module-not-found
+[00:00:12.708] Browser ERROR   uncaughtError: TypeError: Cannot redefine property: ethereum
+[00:00:38.709] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:39.415] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[00:00:39.415] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
+[00:00:39.415] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.6.1","sv":"0.1.3","ts":1766180542707}
+[00:00:39.415] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/v2 color: rgb(120, 120, 120) color: inherit {"dp":"/v2","o":"http://localhost:3000/v2","sdkn":"@vercel/analytics/next","sdkv":"1.6.1","sv":"0.1.3","ts":1766180542737}
+[00:00:39.975] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:39.975] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:40.594] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:40.594] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:41.723] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:41.723] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:41.723] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:41.723] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:41.842] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:41.842] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:42.459] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:42.459] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:43.697] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:43.697] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:43.697] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:43.697] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:43.697] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/v2/portfolio color: rgb(120, 120, 120) color: inherit {"dp":"/v2/portfolio","o":"http://localhost:3000/v2/portfolio","sdkn":"@vercel/analytics/next","sdkv":"1.6.1","sv":"0.1.3","ts":1766180546957}
+[00:00:43.697] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:43.697] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:43.875] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:43.875] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:44.316] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:44.316] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:44.496] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:44.496] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:45.439] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:45.439] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:45.439] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:45.439] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:45.614] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:45.614] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:45.614] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:45.614] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:45.614] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:45.614] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:45.735] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:45.735] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:46.178] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:46.178] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:46.354] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:46.354] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:47.308] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:47.308] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:47.308] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:47.308] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:47.476] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:47.476] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:47.476] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:47.476] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:47.673] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:47.673] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:47.673] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/v2/oracle color: rgb(120, 120, 120) color: inherit {"dp":"/v2/oracle","o":"http://localhost:3000/v2/oracle","sdkn":"@vercel/analytics/next","sdkv":"1.6.1","sv":"0.1.3","ts":1766180550995}
+[00:00:48.214] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:48.214] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:49.336] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:49.336] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:49.336] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:49.336] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:49.456] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:49.456] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:50.078] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:50.078] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:50.281] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/v2/portfolio color: rgb(120, 120, 120) color: inherit {"dp":"/v2/portfolio","o":"http://localhost:3000/v2/portfolio","sdkn":"@vercel/analytics/next","sdkv":"1.6.1","sv":"0.1.3","ts":1766180553604}
+[00:00:50.522] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:50.522] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:51.195] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:51.195] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:51.195] Browser ERROR   Server responded with 429 .  Retrying after 500ms delay...
+[00:00:51.195] Browser ERROR   Server responded with 429 .  Retrying after 500ms delay...
+[00:00:51.195] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:51.195] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:51.195] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:51.195] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:51.783] Browser ERROR   Server responded with 429 .  Retrying after 1000ms delay...
+[00:00:51.783] Browser ERROR   Server responded with 429 .  Retrying after 1000ms delay...
+[00:00:52.268] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:52.268] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:52.268] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:52.268] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:52.387] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:52.387] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:52.902] Browser ERROR   Server responded with 429 .  Retrying after 2000ms delay...
+[00:00:52.902] Browser ERROR   Server responded with 429 .  Retrying after 2000ms delay...
+[00:00:53.007] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:53.007] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:54.129] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:54.129] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:54.129] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:54.129] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:54.248] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:54.248] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:54.868] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:54.868] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:55.020] Browser ERROR   Server responded with 429 .  Retrying after 4000ms delay...
+[00:00:55.020] Browser ERROR   Server responded with 429 .  Retrying after 4000ms delay...
+[00:00:56.444] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:56.444] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:56.444] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:56.444] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:56.560] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:56.560] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:00:57.179] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:57.179] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:00:58.299] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:58.299] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:58.299] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:00:58.299] Browser ERROR   All vault fetch attempts failed: {}
+[00:00:59.392] Browser ERROR   Server responded with 429 .  Retrying after 500ms delay...
+[00:00:59.511] Browser ERROR   Server responded with 429 .  Retrying after 500ms delay...
+[00:01:00.010] Browser ERROR   Server responded with 429 .  Retrying after 1000ms delay...
+[00:01:00.129] Browser ERROR   Server responded with 429 .  Retrying after 1000ms delay...
+[00:01:01.256] Browser ERROR   Server responded with 429 .  Retrying after 2000ms delay...
+[00:01:01.256] Browser ERROR   Server responded with 429 .  Retrying after 500ms delay...
+[00:01:01.875] Browser ERROR   Server responded with 429 .  Retrying after 1000ms delay...
+[00:01:22.717] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:01:23.156] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:01:24.396] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:01:24.396] Browser ERROR   All vault fetch attempts failed: {}
+[00:01:24.396] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/v2 color: rgb(120, 120, 120) color: inherit {"dp":"/v2","o":"http://localhost:3000/v2","sdkn":"@vercel/analytics/next","sdkv":"1.6.1","sv":"0.1.3","ts":1766180587700}
+[00:01:24.396] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:01:24.615] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:01:24.615] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:01:25.015] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:01:25.236] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:01:25.236] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:01:26.137] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:01:26.137] Browser ERROR   All vault fetch attempts failed: {}
+[00:01:26.358] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:01:26.358] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:01:26.358] Browser ERROR   All vault fetch attempts failed: {}
+[00:01:26.358] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:01:26.358] Browser ERROR   All vault fetch attempts failed: {}
+[00:01:26.477] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:01:26.477] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:01:26.875] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:01:27.096] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:01:27.096] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:01:28.019] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:01:28.019] Browser ERROR   All vault fetch attempts failed: {}
+[00:01:28.218] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:01:28.218] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:01:28.218] Browser ERROR   All vault fetch attempts failed: {}
+[00:01:28.218] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:01:28.218] Browser ERROR   All vault fetch attempts failed: {}
+[00:01:28.338] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:01:28.338] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:01:28.779] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:01:28.956] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:01:28.956] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:01:29.897] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:01:29.898] Browser ERROR   All vault fetch attempts failed: {}
+[00:01:30.106] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:01:30.106] Browser ERROR   All vault fetch attempts failed: {}
+[00:01:30.106] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:01:30.106] Browser ERROR   All vault fetch attempts failed: {}
+[00:01:30.206] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:01:30.206] Browser WARN    Vault fetch attempt 1/3 failed: {}
+[00:01:30.827] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:01:30.827] Browser WARN    Vault fetch attempt 2/3 failed: {}
+[00:01:31.949] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:01:31.949] Browser ERROR   All vault fetch attempts failed: {}
+[00:01:31.949] Browser WARN    Vault fetch attempt 3/3 failed: {}
+[00:01:31.949] Browser ERROR   All vault fetch attempts failed: {}
