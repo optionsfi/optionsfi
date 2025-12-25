@@ -609,19 +609,18 @@ async function runSettlement(targetAssetId?: string): Promise<{ success: boolean
                 ? epochPremiumEarned - payoffAmount
                 : BigInt(0);
 
-            // Convert USDC premium to equivalent underlying tokens
-            // netPremiumUsdc is in USDC (6 decimals), currentPrice is in USD per token
-            const premiumInTokens = BigInt(Math.floor(
-                (Number(netPremiumUsdc) / currentPrice)
-            ));
-
-            logger.info("Converting premium to tokens", {
+            // NOTE: We do NOT convert USDC premium to underlying tokens.
+            // Premiums remain in USDC (tracked in vault.premium_token_account).
+            // This prevents the "flywheel" effect of TVL growing with synthetic tokens.
+            // For now, we pass 0 to advanceEpoch so total_assets stays pure.
+            // The USDC premium can be distributed separately (e.g., to share holders).
+            logger.info("Settling epoch (premiums kept in USDC)", {
                 netPremiumUsdc: (Number(netPremiumUsdc) / 1e6).toFixed(4),
                 spotPrice: currentPrice.toFixed(2),
-                premiumInTokens: (Number(premiumInTokens) / 1e6).toFixed(6),
             });
 
-            const tx = await state.onchainClient.advanceEpoch(assetId, premiumInTokens);
+            // Pass 0 to keep TVL in underlying-only. Premium is in USDC.
+            const tx = await state.onchainClient.advanceEpoch(assetId, BigInt(0));
             logger.info("Epoch advanced", { tx, assetId });
         }
 
