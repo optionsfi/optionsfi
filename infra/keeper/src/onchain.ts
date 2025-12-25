@@ -278,6 +278,17 @@ export class OnChainClient {
 // ============================================================================
 
 export function loadKeypair(keypairPath: string): Keypair {
+    // Try env var first (base64-encoded keypair)
+    if (process.env.WALLET_PRIVATE_KEY) {
+        try {
+            const decoded = Buffer.from(process.env.WALLET_PRIVATE_KEY, "base64");
+            return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(decoded.toString())));
+        } catch (error) {
+            console.error("Failed to load wallet from WALLET_PRIVATE_KEY:", error);
+        }
+    }
+
+    // Fall back to file
     const resolved = path.resolve(keypairPath);
     const keypairData = JSON.parse(fs.readFileSync(resolved, "utf-8"));
     return Keypair.fromSecretKey(Uint8Array.from(keypairData));
