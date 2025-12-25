@@ -133,8 +133,10 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
                             );
                         })}
 
-                        {/* Demo Controls */}
-                        <SidebarDemoPanel collapsed={sidebarCollapsed} />
+                        {/* Demo Controls - only show on demo vault page */}
+                        {pathname?.includes('/demonvdax') && (
+                            <SidebarDemoPanel collapsed={sidebarCollapsed} />
+                        )}
                     </nav>
 
                     {/* Divider */}

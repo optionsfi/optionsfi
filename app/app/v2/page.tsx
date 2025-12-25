@@ -39,13 +39,25 @@ export default function V2EarnDashboard() {
     const { connected } = useWallet();
     const { vaults, loading } = useAllVaults();
 
+    // Calculate tier based on APY: <8% = Conservative, 8-15% = Normal, >15% = Aggressive
+    const getTierFromApy = (apy: number, isDemo: boolean): string => {
+        if (isDemo) return "Demo";
+        if (apy < 8) return "Conservative";
+        if (apy > 15) return "Aggressive";
+        return "Normal";
+    };
+
     const vaultList = Object.entries(VAULT_METADATA).map(([id, meta]) => {
         const liveData = vaults[id];
         const tvlTokens = liveData ? liveData.tvl : 0;
         const tvlUsd = tvlTokens * meta.price; // Convert to USD
+        const actualApy = liveData?.apy ?? meta.apy;
+        const isDemo = id === "demonvdax";
         return {
             id,
             ...meta,
+            apy: actualApy,
+            tier: getTierFromApy(actualApy, isDemo),
             tvl: tvlUsd,
             tvlTokens,
             isLive: !!liveData,
