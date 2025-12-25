@@ -524,16 +524,16 @@ function startHealthServer(): void {
     });
 
     app.post("/trigger", async (req: Request, res: Response) => {
-        logEvent("epoch_roll_triggered", { manual: true });
+        logEvent("epoch_roll_triggered", { vault: config.assetId, manual: true });
         const success = await runEpochRoll();
-        logEvent("epoch_roll_completed", { success });
+        logEvent("epoch_roll_completed", { vault: config.assetId, success });
         res.json({ success, message: success ? "Epoch roll completed" : "Epoch roll failed" });
     });
 
     app.post("/settle", async (req: Request, res: Response) => {
-        logEvent("settlement_triggered", { manual: true });
+        logEvent("settlement_triggered", { vault: config.assetId, manual: true });
         const result = await runSettlement();
-        logEvent("settlement_completed", { success: result.success });
+        logEvent("settlement_completed", { vault: config.assetId, success: result.success });
         res.json(result);
     });
 
