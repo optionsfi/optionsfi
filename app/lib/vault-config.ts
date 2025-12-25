@@ -21,10 +21,10 @@ export interface VaultMetadata {
 
 export const VAULT_CONFIG: Record<string, VaultMetadata> = {
     // Demo vault with virtual offset (first depositor protection - no token loss)
-    demonvdax4: {
+    demonvdax5: {
         name: "Demo NVDAx",
         symbol: "NVDAx",
-        assetId: "DemoNVDAx4",
+        assetId: "DemoNVDAx5",
         strategy: "Demo Vault",
         logo: "/nvidiax_logo.png",
         accentColor: "#76B900",
@@ -36,10 +36,10 @@ export const VAULT_CONFIG: Record<string, VaultMetadata> = {
     },
 
     // Production vaults
-    nvdax2: {
+    nvdax3: {
         name: "NVDAx Vault",
         symbol: "NVDAx",
-        assetId: "NVDAx2",
+        assetId: "NVDAx3",
         strategy: "Covered Call",
         logo: "/nvidiax_logo.png",
         accentColor: "#76B900",
@@ -48,58 +48,6 @@ export const VAULT_CONFIG: Record<string, VaultMetadata> = {
         isDemo: false,
         decimals: 6,
         pythFeedId: "0x4244d07890e4610f46bbde67de8f43a4bf8b569eebe904f136b469f148503b7f",
-    },
-    aaplx: {
-        name: "AAPLx Vault",
-        symbol: "AAPLx",
-        assetId: "AAPLx",
-        strategy: "Covered Call",
-        logo: "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6849799260ee65bf38841f90_Ticker%3DAAPL%2C%20Company%20Name%3DApple%20Inc.%2C%20size%3D256x256.svg",
-        accentColor: "#A2AAAD",
-        strikeOffset: 0.05,
-        premiumRange: [0.4, 0.7],
-        isDemo: false,
-        decimals: 6,
-        pythFeedId: "0x978e6cc68a119ce066aa830017318563a9ed04ec3a0a6439010fc11296a58675",
-    },
-    tslax: {
-        name: "TSLAx Vault",
-        symbol: "TSLAx",
-        assetId: "TSLAx",
-        strategy: "Covered Call",
-        logo: "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/684aaf9559b2312c162731f5_Ticker%3DTSLA%2C%20Company%20Name%3DTesla%20Inc.%2C%20size%3D256x256.svg",
-        accentColor: "#CC0000",
-        strikeOffset: 0.08,
-        premiumRange: [1.2, 2.0],
-        isDemo: false,
-        decimals: 6,
-        pythFeedId: "0x47a156470288850a440df3a6ce85a55917b813a19bb5b31128a33a986566a362",
-    },
-    spyx: {
-        name: "SPYx Vault",
-        symbol: "SPYx",
-        assetId: "SPYx",
-        strategy: "Covered Call",
-        logo: "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/685116624ae31d5ceb724895_Ticker%3DSPX%2C%20Company%20Name%3DSP500%2C%20size%3D256x256.svg",
-        accentColor: "#1E88E5",
-        strikeOffset: 0.05,
-        premiumRange: [0.4, 0.7],
-        isDemo: false,
-        decimals: 6,
-        pythFeedId: "0x2817b78438c769357182c04346fddaad1178c82f4048828fe0997c3c64624e14",
-    },
-    metax: {
-        name: "METAx Vault",
-        symbol: "METAx",
-        assetId: "METAx",
-        strategy: "Covered Call",
-        logo: "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/68497dee3db1bae97b91ac05_Ticker%3DMETA%2C%20Company%20Name%3DMeta%20Platforms%20Inc.%2C%20size%3D256x256.svg",
-        accentColor: "#0668E1",
-        strikeOffset: 0.10,
-        premiumRange: [0.8, 1.2],
-        isDemo: false,
-        decimals: 6,
-        pythFeedId: "0xbf3e5871be3f80ab7a4d1f1fd039145179fb58569e159aee1ccd472868ea5900",
     },
 };
 

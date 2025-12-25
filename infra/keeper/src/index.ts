@@ -47,8 +47,8 @@ const config = {
 // Pyth Hermes API for real-time prices
 const HERMES_URL = "https://hermes.pyth.network";
 const PYTH_FEED_IDS: Record<string, string> = {
-    NVDAx2: "0x4244d07890e4610f46bbde67de8f43a4bf8b569eebe904f136b469f148503b7f", // NVDA/USD from Pyth
-    DemoNVDAx4: "0x4244d07890e4610f46bbde67de8f43a4bf8b569eebe904f136b469f148503b7f", // Demo vault
+    NVDAx3: "0x4244d07890e4610f46bbde67de8f43a4bf8b569eebe904f136b469f148503b7f", // NVDA/USD from Pyth
+    DemoNVDAx5: "0x4244d07890e4610f46bbde67de8f43a4bf8b569eebe904f136b469f148503b7f", // Demo vault
 };
 
 // ============================================================================

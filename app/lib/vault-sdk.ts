@@ -27,14 +27,14 @@ export interface VaultConfig {
 const NVDAX_MINT = new PublicKey("G5VWnnWRxVvuTqRCEQNNGEdRmS42hMTyh8DAN9MHecLn");
 
 export const VAULTS: Record<string, VaultConfig> = {
-    nvdax2: {
-        symbol: "NVDAx2",
-        assetId: "NVDAx2",
+    nvdax3: {
+        symbol: "NVDAx3",
+        assetId: "NVDAx3",
         underlyingMint: NVDAX_MINT,
     },
-    demonvdax4: {
-        symbol: "DemoNVDAx4",
-        assetId: "DemoNVDAx4",
+    demonvdax5: {
+        symbol: "DemoNVDAx5",
+        assetId: "DemoNVDAx5",
         underlyingMint: NVDAX_MINT,
     },
 };

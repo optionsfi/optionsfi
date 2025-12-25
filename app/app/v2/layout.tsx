@@ -135,7 +135,7 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
                         })}
 
                         {/* Show Zap (Demo Panel) for demo vaults */}
-                        {(pathname.includes('/demonvdax4') || pathname.includes('/DemoNVDAx4')) && (
+                        {(pathname.includes('/demonvdax5') || pathname.includes('/DemoNVDAx5')) && (
                             <SidebarDemoPanel collapsed={sidebarCollapsed} />
                         )}
                     </nav>

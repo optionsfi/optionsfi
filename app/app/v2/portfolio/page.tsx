@@ -23,12 +23,8 @@ const VAULT_METADATA: Record<string, {
     strikeOtm: number;
     maxCap: number;
 }> = {
-    nvdax2: { name: "NVDAx Vault", symbol: "NVDAx", logo: "/nvidiax_logo.png", accentColor: "#76B900", tier: "Normal", strikeOtm: 10, maxCap: 10 },
-    demonvdax4: { name: "Demo NVDAx", symbol: "NVDAx", logo: "/nvidiax_logo.png", accentColor: "#76B900", tier: "Demo", strikeOtm: 10, maxCap: 10 },
-    aaplx: { name: "AAPLx Vault", symbol: "AAPLx", logo: "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6849799260ee65bf38841f90_Ticker%3DAAPL%2C%20Company%20Name%3DApple%20Inc.%2C%20size%3D256x256.svg", accentColor: "#A2AAAD", tier: "Conservative", strikeOtm: 15, maxCap: 15 },
-    tslax: { name: "TSLAx Vault", symbol: "TSLAx", logo: "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/684aaf9559b2312c162731f5_Ticker%3DTSLA%2C%20Company%20Name%3DTesla%20Inc.%2C%20size%3D256x256.svg", accentColor: "#CC0000", tier: "Aggressive", strikeOtm: 8, maxCap: 8 },
-    spyx: { name: "SPYx Vault", symbol: "SPYx", logo: "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/685116624ae31d5ceb724895_Ticker%3DSPX%2C%20Company%20Name%3DSP500%2C%20size%3D256x256.svg", accentColor: "#1E88E5", tier: "Conservative", strikeOtm: 12, maxCap: 12 },
-    metax: { name: "METAx Vault", symbol: "METAx", logo: "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/68497dee3db1bae97b91ac05_Ticker%3DMETA%2C%20Company%20Name%3DMeta%20Platforms%20Inc.%2C%20size%3D256x256.svg", accentColor: "#0668E1", tier: "Normal", strikeOtm: 10, maxCap: 10 },
+    nvdax3: { name: "NVDAx Vault", symbol: "NVDAx", logo: "/nvidiax_logo.png", accentColor: "#76B900", tier: "Normal", strikeOtm: 10, maxCap: 10 },
+    demonvdax5: { name: "Demo NVDAx", symbol: "NVDAx", logo: "/nvidiax_logo.png", accentColor: "#76B900", tier: "Demo", strikeOtm: 10, maxCap: 10 },
 };
 
 type ChartMode = "performance" | "value" | "premium";
