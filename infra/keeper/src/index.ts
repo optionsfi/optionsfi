@@ -266,8 +266,10 @@ async function runEpochRollForVault(assetId: string, preFetchedPrice?: OraclePri
             epoch: vaultData.epoch.toString(),
         });
 
-        if (availableExposure <= 0) {
-            logger.warn("No available exposure capacity");
+        if (availableExposure < 0.01) {
+            logger.warn("Available exposure capacity too small to roll (< 0.01 tokens)", {
+                availableExposure: availableExposure.toFixed(6)
+            });
             state.isRunning = false;
             return false;
         }
@@ -346,7 +348,7 @@ async function runEpochRollForVault(assetId: string, preFetchedPrice?: OraclePri
                 strike: strikePrice,
                 expiry: Date.now() + config.epochDurationDays * 24 * 60 * 60 * 1000,
                 size: notionalTokens,
-                premiumFloor: Math.floor(totalPremium * 0.8), // 80% of BS price minimum
+                premiumFloor: Math.max(1, Math.floor(totalPremium * 0.8 * 1e6)), // 80% of BS price minimum in USDC base units
             }, { timeout: 15000 });
 
             const rfqId = rfqResponse.data.rfqId;

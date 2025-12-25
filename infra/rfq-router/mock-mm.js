@@ -137,10 +137,10 @@ function handleMessage(msg) {
         const spotPrice = msg.strike / 1.10;
         // Premium in USD = size_tokens * price * percent
         const premiumUsd = msg.size * spotPrice * premiumPercent;
-        // Convert to USDC base units (6 decimals)
-        const premium = Math.floor(premiumUsd * 1e6);
+        // Convert to USDC base units (6 decimals) and ensure it's an integer
+        const premium = Math.max(1, Math.floor(premiumUsd * 1e6));
 
-        console.log(`📊 Premium calc: ${msg.size} tokens × $${spotPrice.toFixed(2)} × ${(premiumPercent * 100).toFixed(2)}% = $${premiumUsd.toFixed(2)} (${premium} base units)`);
+        console.log(`📊 Premium calc: ${msg.size} tokens × $${spotPrice.toFixed(2)} × ${(premiumPercent * 100).toFixed(4)}% = $${premiumUsd.toFixed(6)} (${premium} base units)`);
 
         // Simulate thinking time (500ms - 1.5s)
         setTimeout(() => {

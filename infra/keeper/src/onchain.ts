@@ -68,13 +68,16 @@ export interface VaultData {
     shareEscrow: PublicKey;
     totalAssets: bigint;
     totalShares: bigint;
+    virtualOffset: bigint;
     epoch: bigint;
     utilizationCapBps: number;
+    minEpochDuration: bigint;
     lastRollTimestamp: bigint;
     pendingWithdrawals: bigint;
     epochNotionalExposed: bigint;
     epochPremiumEarned: bigint;
     epochPremiumPerTokenBps: number;
+    isPaused: boolean;
     bump: number;
 }
 
@@ -152,13 +155,16 @@ export class OnChainClient {
                 shareEscrow: vault.shareEscrow as PublicKey,
                 totalAssets: BigInt((vault.totalAssets as anchor.BN).toString()),
                 totalShares: BigInt((vault.totalShares as anchor.BN).toString()),
+                virtualOffset: BigInt((vault.virtualOffset as anchor.BN).toString()),
                 epoch: BigInt((vault.epoch as anchor.BN).toString()),
                 utilizationCapBps: vault.utilizationCapBps as number,
+                minEpochDuration: BigInt((vault.minEpochDuration as anchor.BN).toString()),
                 lastRollTimestamp: BigInt((vault.lastRollTimestamp as anchor.BN).toString()),
                 pendingWithdrawals: BigInt((vault.pendingWithdrawals as anchor.BN).toString()),
                 epochNotionalExposed: BigInt((vault.epochNotionalExposed as anchor.BN).toString()),
                 epochPremiumEarned: BigInt((vault.epochPremiumEarned as anchor.BN).toString()),
                 epochPremiumPerTokenBps: vault.epochPremiumPerTokenBps as number,
+                isPaused: vault.isPaused as boolean,
                 bump: vault.bump as number,
             };
         } catch (error: any) {

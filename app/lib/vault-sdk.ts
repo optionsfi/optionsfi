@@ -47,19 +47,22 @@ export interface VaultData {
     shareMint: string;
     vaultTokenAccount: string;
     shareEscrow: string;
-    epoch: number;
     totalAssets: string;
     totalShares: string;
+    virtualOffset: string;
+    epoch: number;
     sharePrice: number;
     apy: number;
     tvl: number;
     utilizationCapBps: number;
     minEpochDuration: number;
+    lastRollTimestamp: number;
     pendingWithdrawals: string;
     // Notional exposure tracking (fractional options)
     epochNotionalExposed: string;      // Total tokens exposed to options this epoch
     epochPremiumEarned: string;        // Total premium earned this epoch
     epochPremiumPerTokenBps: number;   // Average premium rate in basis points
+    isPaused: boolean;
 }
 
 /**
@@ -128,6 +131,7 @@ export function getVaultProgram(provider: AnchorProvider): any {
 export async function fetchVaultData(
     connection: Connection,
     assetId: string,
+    underlyingPrice: number = 0,
     retries = 3
 ): Promise<VaultData | null> {
     const [vaultPda] = deriveVaultPda(assetId);
@@ -154,18 +158,28 @@ export async function fetchVaultData(
             // Calculate share price (totalAssets / totalShares)
             const totalAssets = Number(vaultAccount.totalAssets);
             const totalShares = Number(vaultAccount.totalShares);
-            const sharePrice = totalShares > 0 ? totalAssets / totalShares : 1.0;
+            const virtualOffset = Number(vaultAccount.virtualOffset || 0);
+
+            // Calculate share price (totalAssets / totalShares)
+            // effective_shares = total_shares + virtual_offset
+            const effectiveShares = totalShares + virtualOffset;
+            const sharePrice = effectiveShares > 0 ? totalAssets / effectiveShares : 1.0;
 
             // Calculate APY from epoch premium (annualized)
-            // Real APY = (premium_earned / total_assets) × 52 weeks × 100
-            // This gives the actual yield on the entire vault, not just exposed tokens
-            const epochPremiumEarned = Number(vaultAccount.epochPremiumEarned || 0);
-            const epochYieldPercent = totalAssets > 0
-                ? (epochPremiumEarned / totalAssets) * 100
+            // Real APY = (premium_earned_usd / total_assets_usd) × 52 weeks × 100
+            // total_assets_usd = total_assets * underlying_price
+            const epochPremiumEarned = Number(vaultAccount.epochPremiumEarned || 0) / 1e6; // USDC
+            const underlyingPriceAdjusted = underlyingPrice > 0 ? underlyingPrice : 188; // Fallback to 188 for NVDA if not provided
+            const tvlTokens = totalAssets / 1e6;
+            const tvlUsd = tvlTokens * underlyingPriceAdjusted;
+
+            const epochYieldPercent = tvlUsd > 0
+                ? (epochPremiumEarned / tvlUsd) * 100
                 : 0;
+
             // Annualize assuming weekly epochs
             const apy = epochYieldPercent * 52;
-            const tvl = totalAssets / 1e6; // Assuming 6 decimals
+            const tvl = tvlTokens;
 
             return {
                 publicKey: vaultPda.toBase58(),
@@ -178,16 +192,19 @@ export async function fetchVaultData(
                 epoch: Number(vaultAccount.epoch),
                 totalAssets: vaultAccount.totalAssets.toString(),
                 totalShares: vaultAccount.totalShares.toString(),
+                virtualOffset: (vaultAccount.virtualOffset || 0).toString(),
                 sharePrice,
                 apy,
                 tvl,
                 utilizationCapBps: Number(vaultAccount.utilizationCapBps),
                 minEpochDuration: Number(vaultAccount.minEpochDuration || 0),
+                lastRollTimestamp: Number(vaultAccount.lastRollTimestamp || 0),
                 pendingWithdrawals: vaultAccount.pendingWithdrawals.toString(),
                 // Notional exposure tracking (with fallbacks for existing vaults)
                 epochNotionalExposed: (vaultAccount.epochNotionalExposed || 0).toString(),
                 epochPremiumEarned: (vaultAccount.epochPremiumEarned || 0).toString(),
                 epochPremiumPerTokenBps: Number(vaultAccount.epochPremiumPerTokenBps || 0),
+                isPaused: !!vaultAccount.isPaused,
             };
         } catch (error) {
             lastError = error as Error;
