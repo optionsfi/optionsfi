@@ -98,6 +98,33 @@ const state: KeeperState = {
     epochPremiumEarned: BigInt(0),
 };
 
+// Event log buffer for real-time monitoring
+interface KeeperEvent {
+    id: string;
+    type: string;
+    source: string;
+    timestamp: string;
+    data: Record<string, unknown>;
+}
+
+const eventLog: KeeperEvent[] = [];
+const MAX_EVENTS = 100;
+
+function logEvent(type: string, data: Record<string, unknown>): void {
+    const event: KeeperEvent = {
+        id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        type,
+        source: "keeper",
+        timestamp: new Date().toISOString(),
+        data,
+    };
+    eventLog.push(event);
+    if (eventLog.length > MAX_EVENTS) {
+        eventLog.shift();
+    }
+    logger.info(`[${type}]`, data);
+}
+
 // ============================================================================
 // Price Oracle
 // ============================================================================
@@ -487,15 +514,26 @@ function startHealthServer(): void {
         });
     });
 
+    // Events endpoint for real-time logs
+    app.get("/events", (req: Request, res: Response) => {
+        const since = req.query.since ? parseInt(req.query.since as string) : 0;
+        const filtered = since > 0
+            ? eventLog.filter(e => new Date(e.timestamp).getTime() > since)
+            : eventLog.slice(-50);
+        res.json({ events: filtered, serverTime: Date.now() });
+    });
+
     app.post("/trigger", async (req: Request, res: Response) => {
-        logger.info("Manual trigger received");
+        logEvent("epoch_roll_triggered", { manual: true });
         const success = await runEpochRoll();
+        logEvent("epoch_roll_completed", { success });
         res.json({ success, message: success ? "Epoch roll completed" : "Epoch roll failed" });
     });
 
     app.post("/settle", async (req: Request, res: Response) => {
-        logger.info("Manual settlement trigger received");
+        logEvent("settlement_triggered", { manual: true });
         const result = await runSettlement();
+        logEvent("settlement_completed", { success: result.success });
         res.json(result);
     });
 

@@ -14,6 +14,7 @@ interface ServiceStatus {
 interface LogEvent {
     id: string;
     type: string;
+    source: string;
     timestamp: string;
     data: Record<string, unknown>;
 }
@@ -32,6 +33,15 @@ const EVENT_LABELS: Record<string, string> = {
     rfq_created: "RFQ CREATED",
     quote_received: "QUOTE RECEIVED",
     rfq_filled: "RFQ FILLED",
+    epoch_roll_triggered: "EPOCH ROLL",
+    epoch_roll_completed: "ROLL DONE",
+    settlement_triggered: "SETTLEMENT",
+    settlement_completed: "SETTLED",
+};
+
+const SOURCE_COLORS: Record<string, string> = {
+    "rfq-router": "text-blue-500",
+    "keeper": "text-orange-400",
 };
 
 export default function LogsPage() {
@@ -63,31 +73,40 @@ export default function LogsPage() {
 
     const fetchEvents = useCallback(async () => {
         const routerUrl = process.env.NEXT_PUBLIC_RFQ_ROUTER_URL;
-        if (!routerUrl) return;
+        const keeperUrl = process.env.NEXT_PUBLIC_KEEPER_URL;
 
-        try {
-            const url = lastEventTime > 0
-                ? `${routerUrl}/events?since=${lastEventTime}`
-                : `${routerUrl}/events`;
-            const response = await fetch(url, { cache: "no-store" });
-            if (response.ok) {
-                const data = await response.json();
-                if (data.events && data.events.length > 0) {
-                    setEvents(prev => {
-                        const newEvents = data.events.filter((e: LogEvent) => !prev.some(p => p.id === e.id));
-                        return [...prev, ...newEvents].slice(-100); // Keep last 100
-                    });
-                    setLastEventTime(data.serverTime);
-                    // Auto-scroll terminal
-                    setTimeout(() => {
-                        if (terminalRef.current) {
-                            terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
-                        }
-                    }, 50);
+        const fetchFromUrl = async (url: string) => {
+            try {
+                const fullUrl = lastEventTime > 0 ? `${url}/events?since=${lastEventTime}` : `${url}/events`;
+                const response = await fetch(fullUrl, { cache: "no-store" });
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.events || [];
                 }
+            } catch (error) {
+                console.error(`Failed to fetch events from ${url}:`, error);
             }
-        } catch (error) {
-            console.error("Failed to fetch events:", error);
+            return [];
+        };
+
+        const allEvents: LogEvent[] = [];
+        if (routerUrl) allEvents.push(...await fetchFromUrl(routerUrl));
+        if (keeperUrl) allEvents.push(...await fetchFromUrl(keeperUrl));
+
+        if (allEvents.length > 0) {
+            setEvents(prev => {
+                const newEvents = allEvents.filter((e: LogEvent) => !prev.some(p => p.id === e.id));
+                const combined = [...prev, ...newEvents]
+                    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+                    .slice(-100);
+                return combined;
+            });
+            setLastEventTime(Date.now());
+            setTimeout(() => {
+                if (terminalRef.current) {
+                    terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+                }
+            }, 50);
         }
     }, [lastEventTime]);
 
@@ -215,8 +234,11 @@ export default function LogsPage() {
                         events.map((event) => (
                             <div key={event.id} className="flex gap-3 hover:bg-gray-800/30 px-2 py-0.5 rounded">
                                 <span className="text-gray-500 flex-shrink-0">{formatTime(event.timestamp)}</span>
-                                <span className={`flex-shrink-0 w-32 ${EVENT_COLORS[event.type] || "text-gray-400"}`}>
-                                    [{EVENT_LABELS[event.type] || event.type.toUpperCase()}]
+                                <span className={`flex-shrink-0 w-16 ${SOURCE_COLORS[event.source] || "text-gray-400"}`}>
+                                    [{event.source === "rfq-router" ? "RFQ" : "KEEPER"}]
+                                </span>
+                                <span className={`flex-shrink-0 w-28 ${EVENT_COLORS[event.type] || "text-gray-400"}`}>
+                                    {EVENT_LABELS[event.type] || event.type.toUpperCase()}
                                 </span>
                                 <span className="text-gray-300">
                                     {Object.entries(event.data).map(([k, v]) => (

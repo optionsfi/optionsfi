@@ -42,6 +42,7 @@ function logEvent(type, data) {
     const event = {
         id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         type,
+        source: "rfq-router",
         timestamp: new Date().toISOString(),
         data,
     };
