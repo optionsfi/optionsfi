@@ -317,10 +317,12 @@ pub mod vault {
         let notional_exposed = vault.epoch_notional_exposed;
         let avg_premium_bps = vault.epoch_premium_per_token_bps;
 
-        // Add premium to total assets (increases share value)
-        vault.total_assets = vault.total_assets
+        // Credit premium to USDC balance (separate from underlying TVL)
+        // This prevents the "flywheel" effect of synthetic token creation
+        vault.premium_balance_usdc = vault.premium_balance_usdc
             .checked_add(premium_earned)
             .ok_or(VaultError::Overflow)?;
+        
         vault.epoch = vault.epoch
             .checked_add(1)
             .ok_or(VaultError::Overflow)?;
@@ -339,6 +341,7 @@ pub mod vault {
             avg_premium_bps,
             total_assets: vault.total_assets,
             total_shares: vault.total_shares,
+            premium_balance_usdc: vault.premium_balance_usdc,
         });
 
         Ok(())
@@ -613,6 +616,8 @@ pub struct Vault {
     pub epoch_notional_exposed: u64,
     pub epoch_premium_earned: u64,
     pub epoch_premium_per_token_bps: u32,
+    /// Accumulated USDC premium balance (separate from underlying TVL)
+    pub premium_balance_usdc: u64,
     /// SECURITY: Emergency pause flag
     pub is_paused: bool,
     pub bump: u8,
@@ -646,8 +651,8 @@ pub struct InitializeVault<'info> {
         init,
         payer = authority,
         // Space: 8 (discriminator) + 32 (authority) + 68 (asset_id string max) 
-        //        + 32*6 (mints and accounts) + 8*7 (u64 fields incl virtual_offset) + 2 + 8 + 4 + 1 (is_paused) + 1 (bump)
-        space = 8 + 32 + 68 + 32 + 32 + 32 + 32 + 32 + 32 + 8 + 8 + 8 + 8 + 2 + 8 + 8 + 8 + 8 + 4 + 1 + 1,
+        //        + 32*6 (mints and accounts) + 8*8 (u64 fields incl virtual_offset + premium_balance_usdc) + 2 + 8 + 4 + 1 (is_paused) + 1 (bump)
+        space = 8 + 32 + 68 + 32 + 32 + 32 + 32 + 32 + 32 + 8 + 8 + 8 + 8 + 2 + 8 + 8 + 8 + 8 + 4 + 8 + 1 + 1,
         seeds = [b"vault", asset_id.as_bytes()],
         bump
     )]
@@ -1055,6 +1060,7 @@ pub struct EpochAdvancedEvent {
     pub avg_premium_bps: u32,
     pub total_assets: u64,
     pub total_shares: u64,
+    pub premium_balance_usdc: u64,
 }
 
 #[event]

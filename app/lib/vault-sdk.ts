@@ -62,6 +62,7 @@ export interface VaultData {
     epochNotionalExposed: string;      // Total tokens exposed to options this epoch
     epochPremiumEarned: string;        // Total premium earned this epoch
     epochPremiumPerTokenBps: number;   // Average premium rate in basis points
+    premiumBalanceUsdc: string;        // Accumulated USDC premium (separate from TVL)
     isPaused: boolean;
 }
 
@@ -204,6 +205,7 @@ export async function fetchVaultData(
                 epochNotionalExposed: (vaultAccount.epochNotionalExposed || 0).toString(),
                 epochPremiumEarned: (vaultAccount.epochPremiumEarned || 0).toString(),
                 epochPremiumPerTokenBps: Number(vaultAccount.epochPremiumPerTokenBps || 0),
+                premiumBalanceUsdc: (vaultAccount.premiumBalanceUsdc || 0).toString(),
                 isPaused: !!vaultAccount.isPaused,
             };
         } catch (error) {

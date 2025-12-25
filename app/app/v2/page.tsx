@@ -127,6 +127,11 @@ export default function V2EarnDashboard() {
     const avgAPY = vaultList.length > 0 ? vaultList.reduce((sum, v) => sum + v.apy, 0) / vaultList.length : 0;
     const calculatedTotalTVL = vaultList.reduce((sum, v) => sum + v.tvlUsd, 0);
 
+    // Aggregate USDC premium balance across all vaults
+    const totalPremiumUsdc = Object.values(vaults).reduce((sum, v) => {
+        return sum + (v ? Number(v.premiumBalanceUsdc || 0) / 1e6 : 0);
+    }, 0);
+
     return (
         <div className="w-full space-y-4">
             {/* Hero Section */}
@@ -161,6 +166,13 @@ export default function V2EarnDashboard() {
                             <div className="flex items-center gap-1">
                                 <Clock className="w-4 h-4 text-yellow-400" />
                                 <p className="text-2xl font-bold text-yellow-400">{nextRoll.timeString}</p>
+                            </div>
+                        </div>
+                        <div>
+                            <p className="text-sm text-muted-foreground">USDC Earned</p>
+                            <div className="flex items-center gap-1">
+                                <span className="text-emerald-400">$</span>
+                                <p className="text-2xl font-bold text-emerald-400">{totalPremiumUsdc.toFixed(2)}</p>
                             </div>
                         </div>
                     </div>

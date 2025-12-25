@@ -609,19 +609,15 @@ async function runSettlement(targetAssetId?: string): Promise<{ success: boolean
                 ? epochPremiumEarned - payoffAmount
                 : BigInt(0);
 
-            // NOTE: We do NOT convert USDC premium to underlying tokens.
-            // Premiums remain in USDC (tracked in vault.premium_token_account).
-            // This prevents the "flywheel" effect of TVL growing with synthetic tokens.
-            // For now, we pass 0 to advanceEpoch so total_assets stays pure.
-            // The USDC premium can be distributed separately (e.g., to share holders).
-            logger.info("Settling epoch (premiums kept in USDC)", {
+            // Pass USDC premium to on-chain program which credits it to premium_balance_usdc
+            // (not total_assets, avoiding the flywheel effect)
+            logger.info("Settling epoch", {
                 netPremiumUsdc: (Number(netPremiumUsdc) / 1e6).toFixed(4),
                 spotPrice: currentPrice.toFixed(2),
             });
 
-            // Pass 0 to keep TVL in underlying-only. Premium is in USDC.
-            const tx = await state.onchainClient.advanceEpoch(assetId, BigInt(0));
-            logger.info("Epoch advanced", { tx, assetId });
+            const tx = await state.onchainClient.advanceEpoch(assetId, netPremiumUsdc);
+            logger.info("Epoch advanced", { tx, assetId, premiumCredited: (Number(netPremiumUsdc) / 1e6).toFixed(4) });
         }
 
         const netGain = Number(epochPremiumEarned - payoffAmount) / 1e6;
