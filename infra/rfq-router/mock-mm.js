@@ -41,33 +41,50 @@ function deriveVaultPda(assetId) {
 function loadWallet() {
     // Try environment variable first
     if (process.env.WALLET_PRIVATE_KEY) {
-        const rawKey = process.env.WALLET_PRIVATE_KEY.trim();
+        let rawKey = process.env.WALLET_PRIVATE_KEY.trim();
+        // Remove potential outer quotes from Railway
+        if ((rawKey.startsWith('"') && rawKey.endsWith('"')) || (rawKey.startsWith("'") && rawKey.endsWith("'"))) {
+            rawKey = rawKey.slice(1, -1);
+        }
+
+        console.log(`WALLET_PRIVATE_KEY length: ${rawKey.length} chars`);
+
         try {
             let secretKey;
 
-            // 1. Try JSON Array
-            if (rawKey.startsWith("[") && rawKey.endsWith("]")) {
-                secretKey = Uint8Array.from(JSON.parse(rawKey));
+            // 1. Try JSON Array first (most common for Solana wallets)
+            // Check for bracket anywhere since Railway might add whitespace
+            if (rawKey.includes("[")) {
+                // Extract the JSON array portion
+                const startIdx = rawKey.indexOf("[");
+                const endIdx = rawKey.lastIndexOf("]") + 1;
+                const jsonPart = rawKey.slice(startIdx, endIdx);
+                const parsed = JSON.parse(jsonPart);
+                secretKey = Uint8Array.from(parsed);
+                console.log(`Parsed as JSON array: ${secretKey.length} bytes`);
             }
-            // 2. Try Base58 (Standard Solana)
+            // 2. Try Base58 (Phantom export format)
+            else if (/^[1-9A-HJ-NP-Za-km-z]+$/.test(rawKey)) {
+                secretKey = bs58.decode(rawKey);
+                console.log(`Decoded as Base58: ${secretKey.length} bytes`);
+            }
+            // 3. Fallback to Base64
             else {
-                try {
-                    secretKey = bs58.decode(rawKey);
-                } catch (e) {
-                    // 3. Fallback to Base64
-                    secretKey = Uint8Array.from(Buffer.from(rawKey, "base64"));
-                }
+                secretKey = Uint8Array.from(Buffer.from(rawKey, "base64"));
+                console.log(`Decoded as Base64: ${secretKey.length} bytes`);
             }
 
             if (secretKey.length !== 64) {
-                throw new Error(`Invalid key length: ${secretKey.length}. Expected 64 (32 priv + 32 pub).`);
+                throw new Error(`Invalid key length: ${secretKey.length}. Expected 64.`);
             }
 
             wallet = Keypair.fromSecretKey(secretKey);
-            console.log(`Wallet loaded from env: ${wallet.publicKey.toBase58()}`);
+            console.log(`✓ Wallet loaded: ${wallet.publicKey.toBase58()}`);
             return;
         } catch (error) {
-            console.error("Failed to load wallet from WALLET_PRIVATE_KEY:", error.message);
+            console.error("Failed to parse WALLET_PRIVATE_KEY:", error.message);
+            console.error("Ensure the key is a JSON array [n1, n2, ...], Base58 string, or Base64 string.");
+            process.exit(1); // FAIL HARD - no simulation mode
         }
     }
 
@@ -76,11 +93,11 @@ function loadWallet() {
     try {
         const keypairData = JSON.parse(fs.readFileSync(walletPath, "utf-8"));
         wallet = Keypair.fromSecretKey(Uint8Array.from(keypairData));
-        console.log(`Wallet loaded from file: ${wallet.publicKey.toBase58()}`);
+        console.log(`✓ Wallet loaded from file: ${wallet.publicKey.toBase58()}`);
     } catch (error) {
-        console.error("Failed to load wallet:", error.message);
-        console.log("Premium transfers will be simulated only (no actual tokens)");
-        wallet = null;
+        console.error("Failed to load wallet from file:", error.message);
+        console.error("Set WALLET_PRIVATE_KEY env var or mount wallet file.");
+        process.exit(1); // FAIL HARD - no simulation mode
     }
 }
 
