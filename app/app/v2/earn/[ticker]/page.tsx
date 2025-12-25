@@ -214,11 +214,19 @@ export default function VaultDetailPage() {
             // Use on-chain timestamps if available
             const lastRoll = vaultData.lastRollTimestamp;
             const minDuration = vaultData.minEpochDuration;
-            if (lastRoll > 0 && minDuration > 0) {
-                return lastRoll + minDuration;
+
+            // If we have a last roll, that's our anchor
+            if (lastRoll > 0) {
+                // For demo vaults, if it's already past the min duration, return now to show "Ready"
+                const endTime = lastRoll + minDuration;
+                if (vaultMeta.isDemo && endTime < Math.floor(Date.now() / 1000)) {
+                    return Math.floor(Date.now() / 1000);
+                }
+                return endTime;
             }
         }
 
+        // Only fallback to schedule if we have no on-chain data
         const now = new Date();
         const utcHours = now.getUTCHours();
         const utcMinutes = now.getUTCMinutes();
@@ -295,17 +303,23 @@ export default function VaultDetailPage() {
                 </div>
                 <div className="text-right group relative">
                     <p className="text-xs text-gray-400 flex items-center justify-end gap-1">
-                        Est. APY (Annualized) <Info className="w-3 h-3 text-gray-500" />
+                        Est. APY (Annualized)
+                        <span className="relative group/tooltip">
+                            <Info className="w-3 h-3 text-gray-500 cursor-help" />
+                            <span className="absolute right-0 bottom-full mb-2 px-2 py-1 text-[10px] text-white bg-gray-900 border border-gray-700 rounded shadow-lg w-48 opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
+                                {vaultData?.apy === 0
+                                    ? "Awaiting first options roll to generate yield."
+                                    : "Projected annual return based on current epoch premium."}
+                            </span>
+                        </span>
                     </p>
                     <p className="text-3xl font-bold text-green-400">{(vaultData?.apy || apy).toFixed(2)}%</p>
                 </div>
             </div>
 
-            {/* Epoch Chips */}
             <div className="flex items-center gap-2">
                 {[
                     { label: "Strike", value: `${Math.round(vaultMeta.strikeOffset * 100)}% OTM` },
-                    { label: "Roll", value: `~${timeString}` },
                     { label: "Premium", value: `${vaultMeta.premiumRange[0]}-${vaultMeta.premiumRange[1]}%`, highlight: true },
                     { label: "Cap", value: `+${Math.round(vaultMeta.strikeOffset * 100)}%`, warn: true },
                 ].map((chip, i) => (
@@ -340,13 +354,13 @@ export default function VaultDetailPage() {
                                 <span className="relative group">
                                     <Info className="w-3.5 h-3.5 text-gray-500 cursor-help" />
                                     <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 border border-gray-700 rounded shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                                        Current epoch - Each epoch is one options cycle (~7 days)
+                                        Current epoch - Each epoch is one options cycle
                                     </span>
                                 </span>
                             </p>
                             <p className="text-2xl font-bold text-white">#{epoch}</p>
                             <p className="text-xs text-gray-500 mt-0.5">
-                                {timeString} left
+                                {timeUntilEpochEnd <= 0 ? "Ready to Roll" : `${timeString} left`}
                             </p>
                         </div>
                         <div className="rounded-xl bg-gray-800/40 border border-gray-700/40 p-4">
@@ -364,16 +378,18 @@ export default function VaultDetailPage() {
                         </div>
                         <div className="rounded-xl bg-gray-800/40 border border-gray-700/40 p-4">
                             <p className="text-sm text-gray-400 mb-1 flex items-center gap-1.5">
-                                Est. Premium
+                                Vault Rewards
                                 <span className="relative group">
                                     <Info className="w-3.5 h-3.5 text-gray-500 cursor-help" />
                                     <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 border border-gray-700 rounded shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                                        Estimated yield from selling covered calls
+                                        Cumulative historical earnings from premiums
                                     </span>
                                 </span>
                             </p>
-                            <p className="text-2xl font-bold text-green-400">{vaultMeta.premiumRange[0]}-{vaultMeta.premiumRange[1]}%</p>
-                            <p className="text-xs text-gray-500 mt-0.5">this roll</p>
+                            <p className="text-2xl font-bold text-green-400">
+                                {vaultData?.sharePrice ? `+${((vaultData.sharePrice - 1.0) * 100).toFixed(2)}%` : "0.00%"}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-0.5">since inception</p>
                         </div>
                     </div>
 
