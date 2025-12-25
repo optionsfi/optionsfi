@@ -203,17 +203,27 @@ export default function VaultDetailPage() {
     const tvlTokens = vaultData?.tvl || 0;
     const tvlUsd = tvlTokens * (underlyingPrice || 0); // TVL in USD
     const epoch = vaultData?.epoch || 0;
-    const utilization = vaultData ?
-        (Number(vaultData.totalShares) > 0 ? (vaultData.utilizationCapBps / 100) : 0) : 0;
+    const exposureTokens = vaultData ? (Number(vaultData.epochNotionalExposed) / 1e6) : 0;
+    const utilization = tvlTokens > 0 ? (exposureTokens / tvlTokens) * 100 : 0;
+    const utilizationCap = vaultData?.utilizationCapBps ? vaultData.utilizationCapBps / 100 : 80;
 
     // Epoch timing - calculate based on a fixed weekly schedule
     // Epochs run Sunday 00:00 UTC to Saturday 23:59 UTC
     const getEpochEndTime = () => {
+        if (vaultData) {
+            // Use on-chain timestamps if available
+            const lastRoll = vaultData.lastRollTimestamp;
+            const minDuration = vaultData.minEpochDuration;
+            if (lastRoll > 0 && minDuration > 0) {
+                return lastRoll + minDuration;
+            }
+        }
+
         const now = new Date();
         const utcHours = now.getUTCHours();
         const utcMinutes = now.getUTCMinutes();
 
-        // Sync with Keeper's 6-hour roll schedule (0, 6, 12, 18 UTC)
+        // Fallback to schedule (0, 6, 12, 18 UTC)
         const nextMark = Math.ceil((utcHours + (utcMinutes / 60)) / 6) * 6;
 
         const nextRollDate = new Date(now);
@@ -235,9 +245,17 @@ export default function VaultDetailPage() {
         return () => clearInterval(interval);
     }, []);
 
-    const hoursUntilEnd = Math.floor(timeUntilEpochEnd / 3600);
+    const minutesUntilEnd = Math.floor(timeUntilEpochEnd / 60);
+    const hoursUntilEnd = Math.floor(minutesUntilEnd / 60);
+    const remainingMinutes = minutesUntilEnd % 60;
     const daysUntilEnd = Math.floor(hoursUntilEnd / 24);
     const remainingHours = hoursUntilEnd % 24;
+
+    const timeString = daysUntilEnd > 0
+        ? `${daysUntilEnd}d ${remainingHours}h`
+        : hoursUntilEnd > 0
+            ? `${hoursUntilEnd}h ${remainingMinutes}m`
+            : `${remainingMinutes}m`;
 
     // Themed background gradient
     const backgroundStyle = {
@@ -277,7 +295,7 @@ export default function VaultDetailPage() {
                 </div>
                 <div className="text-right group relative">
                     <p className="text-xs text-gray-400 flex items-center justify-end gap-1">
-                        Est. APY (7 epochs) <Info className="w-3 h-3 text-gray-500" />
+                        Est. APY (Annualized) <Info className="w-3 h-3 text-gray-500" />
                     </p>
                     <p className="text-3xl font-bold text-green-400">{(vaultData?.apy || apy).toFixed(2)}%</p>
                 </div>
@@ -287,7 +305,7 @@ export default function VaultDetailPage() {
             <div className="flex items-center gap-2">
                 {[
                     { label: "Strike", value: `${Math.round(vaultMeta.strikeOffset * 100)}% OTM` },
-                    { label: "Roll", value: "~5h" },
+                    { label: "Roll", value: `~${timeString}` },
                     { label: "Premium", value: `${vaultMeta.premiumRange[0]}-${vaultMeta.premiumRange[1]}%`, highlight: true },
                     { label: "Cap", value: `+${Math.round(vaultMeta.strikeOffset * 100)}%`, warn: true },
                 ].map((chip, i) => (
@@ -328,7 +346,7 @@ export default function VaultDetailPage() {
                             </p>
                             <p className="text-2xl font-bold text-white">#{epoch}</p>
                             <p className="text-xs text-gray-500 mt-0.5">
-                                {daysUntilEnd > 0 ? `${daysUntilEnd}d ${remainingHours}h left` : `${hoursUntilEnd}h left`}
+                                {timeString} left
                             </p>
                         </div>
                         <div className="rounded-xl bg-gray-800/40 border border-gray-700/40 p-4">
@@ -341,8 +359,8 @@ export default function VaultDetailPage() {
                                     </span>
                                 </span>
                             </p>
-                            <p className="text-2xl font-bold text-white">{utilization}%</p>
-                            <p className="text-xs text-gray-500 mt-0.5">of {vaultData?.utilizationCapBps ? vaultData.utilizationCapBps / 100 : 80}%</p>
+                            <p className="text-2xl font-bold text-white">{utilization.toFixed(1)}%</p>
+                            <p className="text-xs text-gray-500 mt-0.5">of {utilizationCap}% cap</p>
                         </div>
                         <div className="rounded-xl bg-gray-800/40 border border-gray-700/40 p-4">
                             <p className="text-sm text-gray-400 mb-1 flex items-center gap-1.5">
@@ -427,11 +445,21 @@ export default function VaultDetailPage() {
                         <div className="p-3 rounded-lg bg-gray-900/40 border border-gray-800/40 mb-3">
                             <div className="flex items-center justify-between mb-2">
                                 <span className="text-sm text-gray-400">Position</span>
-                                <span className="text-sm text-gray-300">Sold <span className="text-white font-semibold">0</span> / Target {vaultData?.utilizationCapBps ? vaultData.utilizationCapBps / 100 : 80}%</span>
+                                <span className="text-sm text-gray-300">Sold <span className="text-white font-semibold">{exposureTokens.toFixed(2)}</span> / Target {utilizationCap}%</span>
                             </div>
-                            <div className="h-2.5 rounded-full bg-gray-800 overflow-hidden flex">
-                                <div className="h-full w-0 rounded-full" style={{ backgroundColor: theme.accent }} />
-                                <div className="h-full w-[60%] border-r-2 border-dashed border-gray-500" />
+                            <div className="h-2.5 rounded-full bg-gray-800 overflow-hidden flex relative">
+                                <div
+                                    className="h-full rounded-full transition-all duration-500"
+                                    style={{
+                                        backgroundColor: theme.accent,
+                                        width: `${Math.min(utilization, 100)}%`
+                                    }}
+                                />
+                                {/* Target marker */}
+                                <div
+                                    className="absolute top-0 bottom-0 border-r-2 border-dashed border-white/20"
+                                    style={{ left: `${utilizationCap}%` }}
+                                />
                             </div>
                         </div>
 
@@ -668,7 +696,7 @@ export default function VaultDetailPage() {
                                     </div>
                                     <div className="flex justify-between px-4 py-3">
                                         <span className="text-sm text-gray-400">Withdraw</span>
-                                        <span className="text-gray-300">Epoch end (~5h)</span>
+                                        <span className="text-gray-300">Epoch end (~{timeString})</span>
                                     </div>
                                     {estPremiumUsd && estPremiumUsd > 0 && (
                                         <div className="flex justify-between px-4 py-3">
