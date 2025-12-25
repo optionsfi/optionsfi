@@ -415,12 +415,28 @@ async function runSettlement(): Promise<{ success: boolean; message: string }> {
         }
 
         // Advance epoch on-chain
+        // Convert USDC premium to equivalent underlying tokens
+        // Premium is in USDC base units (6 decimals), need to convert to underlying tokens
         if (state.onchainClient) {
-            const premiumToCredit = state.epochPremiumEarned > payoffAmount
+            const netPremiumUsdc = state.epochPremiumEarned > payoffAmount
                 ? state.epochPremiumEarned - payoffAmount
                 : BigInt(0);
 
-            const tx = await state.onchainClient.advanceEpoch(config.assetId, premiumToCredit);
+            // Convert USDC premium to equivalent underlying tokens
+            // netPremiumUsdc is in USDC (6 decimals), currentPrice is in USD per token
+            // tokens = usdc_value / price
+            // Result in 6 decimal token units
+            const premiumInTokens = BigInt(Math.floor(
+                (Number(netPremiumUsdc) / currentPrice)
+            ));
+
+            logger.info("Converting premium to tokens", {
+                netPremiumUsdc: (Number(netPremiumUsdc) / 1e6).toFixed(4),
+                spotPrice: currentPrice.toFixed(2),
+                premiumInTokens: (Number(premiumInTokens) / 1e6).toFixed(6),
+            });
+
+            const tx = await state.onchainClient.advanceEpoch(config.assetId, premiumInTokens);
             logger.info("Epoch advanced", { tx });
         }
 
