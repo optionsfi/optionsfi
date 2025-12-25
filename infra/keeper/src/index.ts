@@ -507,6 +507,7 @@ async function checkVaultLifecycle(): Promise<void> {
             }
 
             const isLive = vault.epochNotionalExposed > BigInt(0);
+            const hasPremium = vault.epochPremiumEarned > BigInt(0);
 
             // 1. Settlement Check: If active and expired -> Settle
             if (isLive && now > lastRoll + minDuration + 10) {
@@ -517,11 +518,17 @@ async function checkVaultLifecycle(): Promise<void> {
             // This ensures we don't wait for a full duration of "empty" time after settlement
             else if (!isLive) {
                 logger.info(`Lifecycle: Idle check for ${assetId}`, {
-                    now, lastRoll, minDuration, isRunning: state.isRunning
+                    now, lastRoll, minDuration, isRunning: state.isRunning, hasPremium
                 });
 
-                // If the vault is idle, we should try to roll to keep capital utilized.
-                // The 'runEpochRoll' function has internal checks for capacity/errors.
+                // CRITICAL: If there's accumulated premium from the previous epoch,
+                // we MUST settle first to credit it to TVL before rolling again.
+                if (hasPremium) {
+                    logger.info(`Lifecycle: Settling accumulated premium for ${assetId} before rolling`);
+                    await runSettlement(assetId);
+                }
+
+                // Now roll to start a new epoch
                 logger.info(`Lifecycle: Roll triggered for ${assetId} (Idle State)`);
                 await runEpochRoll(assetId);
             } else {
