@@ -26,7 +26,7 @@ let ws;
 let reconnectAttempts = 0;
 let connection;
 let wallet;
-let vaultPremiumAccount;
+let rfqVaults = {}; // Track underlying asset per RFQ ID
 
 // Derive vault PDA
 function deriveVaultPda(assetId) {
@@ -67,14 +67,6 @@ function loadWallet() {
 async function init() {
     connection = new Connection(RPC_URL, "confirmed");
     loadWallet();
-
-    // Derive vault's USDC premium account
-    const [vaultPda] = deriveVaultPda("NVDAx");
-    console.log("Vault PDA:", vaultPda.toBase58());
-
-    // The vault's USDC premium account is an ATA of the vault PDA
-    vaultPremiumAccount = await getAssociatedTokenAddress(USDC_MINT, vaultPda, true);
-    console.log("Vault USDC Premium Account:", vaultPremiumAccount.toBase58());
 
     // Check if we have USDC balance
     if (wallet) {
@@ -135,10 +127,20 @@ function handleMessage(msg) {
             size: msg.size,
         });
 
+        // Track the underlying asset for this RFQ
+        rfqVaults[msg.rfqId] = msg.underlying;
+
         // Generate quote with realistic spread
-        // Premium = size * premiumRate (~1-1.5% for weekly OTM calls)
-        const premiumRate = 0.01 + Math.random() * 0.005;
-        const premium = Math.floor(msg.size * premiumRate); // Size is already in base units
+        // Premium = size (tokens) * spotPrice * premiumPercent (~1-1.5% for weekly OTM calls)
+        const premiumPercent = 0.01 + Math.random() * 0.005;
+        // Use strike as proxy for spot price (strike is 10% OTM)
+        const spotPrice = msg.strike / 1.10;
+        // Premium in USD = size_tokens * price * percent
+        const premiumUsd = msg.size * spotPrice * premiumPercent;
+        // Convert to USDC base units (6 decimals)
+        const premium = Math.floor(premiumUsd * 1e6);
+
+        console.log(`📊 Premium calc: ${msg.size} tokens × $${spotPrice.toFixed(2)} × ${(premiumPercent * 100).toFixed(2)}% = $${premiumUsd.toFixed(2)} (${premium} base units)`);
 
         // Simulate thinking time (500ms - 1.5s)
         setTimeout(() => {
@@ -147,8 +149,10 @@ function handleMessage(msg) {
     }
 
     if (msg.type === "fill") {
-        console.log(`\n✅ Order filled! RFQ: ${msg.rfqId}, Premium: ${msg.premium / 1e6} USDC`);
-        transferPremiumToVault(msg.premium);
+        const assetId = rfqVaults[msg.rfqId] || "NVDAx3";
+        console.log(`\n✅ Order filled! RFQ: ${msg.rfqId}, Premium: ${msg.premium / 1e6} USDC, Vault: ${assetId}`);
+        transferPremiumToVault(msg.premium, assetId);
+        delete rfqVaults[msg.rfqId]; // Cleanup
     }
 }
 
@@ -164,13 +168,18 @@ function sendQuote(rfqId, premium) {
     }
 }
 
-async function transferPremiumToVault(premiumBaseUnits) {
+async function transferPremiumToVault(premiumBaseUnits, assetId) {
     if (!wallet) {
-        console.log(`[Simulated] Would transfer ${premiumBaseUnits / 1e6} USDC to vault`);
+        console.log(`[Simulated] Would transfer ${premiumBaseUnits / 1e6} USDC to vault ${assetId}`);
         return;
     }
 
     try {
+        // Derive vault PDA for this asset
+        const [vaultPda] = deriveVaultPda(assetId);
+        const vaultPremiumAccount = await getAssociatedTokenAddress(USDC_MINT, vaultPda, true);
+        console.log(`Vault ${assetId} USDC Account: ${vaultPremiumAccount.toBase58()}`);
+
         // Get MM's USDC token account
         const mmUsdcAccount = await getAssociatedTokenAddress(USDC_MINT, wallet.publicKey);
 
@@ -190,7 +199,6 @@ async function transferPremiumToVault(premiumBaseUnits) {
             await getAccount(connection, vaultPremiumAccount);
         } catch (error) {
             console.log("Creating vault USDC token account...");
-            const [vaultPda] = deriveVaultPda("NVDAx");
             tx.add(
                 createAssociatedTokenAccountInstruction(
                     wallet.publicKey,      // payer
@@ -217,7 +225,7 @@ async function transferPremiumToVault(premiumBaseUnits) {
         const signature = await connection.sendRawTransaction(tx.serialize());
         await connection.confirmTransaction(signature, "confirmed");
 
-        console.log(`✓ Premium transferred: ${premiumBaseUnits / 1e6} USDC`);
+        console.log(`✓ Premium transferred to ${assetId}: ${premiumBaseUnits / 1e6} USDC`);
         console.log(`  TX: https://explorer.solana.com/tx/${signature}?cluster=devnet`);
     } catch (error) {
         console.error("Failed to transfer premium:", error.message);
