@@ -75,6 +75,7 @@ export function SidebarDemoPanel({ collapsed = false }: SidebarDemoPanelProps) {
             const response = await fetch(`${keeperUrl}/trigger`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ assetId: "DemoNVDAx5" }),
             });
             const data = await response.json();
             setLastResult({ success: data.success, message: data.success ? "Roll complete" : "Roll failed" });
@@ -95,6 +96,7 @@ export function SidebarDemoPanel({ collapsed = false }: SidebarDemoPanelProps) {
             const response = await fetch(`${keeperUrl}/settle`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ assetId: "DemoNVDAx5" }),
             });
             const data = await response.json();
             setLastResult({ success: data.success, message: data.success ? "Settled" : "Failed" });

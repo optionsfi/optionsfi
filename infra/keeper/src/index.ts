@@ -73,6 +73,13 @@ const logger = winston.createLogger({
 // State
 // ============================================================================
 
+// Per-vault statistics tracking
+interface VaultStats {
+    epochStrikePrice: number;
+    epochNotional: bigint;
+    epochPremiumEarned: bigint;
+}
+
 interface KeeperState {
     connection: Connection;
     wallet: anchor.Wallet;
@@ -82,10 +89,8 @@ interface KeeperState {
     runCount: number;
     errorCount: number;
     isRunning: boolean;
-    // Epoch tracking
-    epochStrikePrice: number;
-    epochNotional: bigint;
-    epochPremiumEarned: bigint;
+    // Multi-vault tracking
+    vaultStats: Map<string, VaultStats>;
 }
 
 const state: KeeperState = {
@@ -97,9 +102,7 @@ const state: KeeperState = {
     runCount: 0,
     errorCount: 0,
     isRunning: false,
-    epochStrikePrice: 0,
-    epochNotional: BigInt(0),
-    epochPremiumEarned: BigInt(0),
+    vaultStats: new Map<string, VaultStats>(),
 };
 
 // Event log buffer for real-time monitoring
@@ -390,9 +393,16 @@ async function runEpochRollForVault(assetId: string, preFetchedPrice?: OraclePri
             logger.info("Exposure recorded", { tx: recordTx });
 
             // Track for settlement
-            state.epochStrikePrice = strikePrice;
-            state.epochNotional = state.epochNotional + notionalBaseUnits;
-            state.epochPremiumEarned = state.epochPremiumEarned + premiumBaseUnits;
+            // Step 6: Update state for settlement tracking
+            let stats = state.vaultStats.get(assetId);
+            if (!stats) {
+                stats = { epochStrikePrice: 0, epochNotional: BigInt(0), epochPremiumEarned: BigInt(0) };
+                state.vaultStats.set(assetId, stats);
+            }
+
+            stats.epochStrikePrice = strikePrice;
+            stats.epochNotional = stats.epochNotional + notionalBaseUnits;
+            stats.epochPremiumEarned = stats.epochPremiumEarned + premiumBaseUnits;
         }
 
         logger.info("========================================");
@@ -420,8 +430,8 @@ async function runEpochRollForVault(assetId: string, preFetchedPrice?: OraclePri
     }
 }
 
-// Wrapper function to run epoch roll for all configured vaults
-async function runEpochRoll(): Promise<boolean> {
+// Wrapper function to run epoch roll for specific or all vaults
+async function runEpochRoll(targetAssetId?: string): Promise<boolean> {
     if (state.isRunning) {
         logger.warn("Epoch roll already in progress");
         return false;
@@ -430,18 +440,20 @@ async function runEpochRoll(): Promise<boolean> {
     state.isRunning = true;
     state.runCount++;
 
+    const assetIds = targetAssetId ? [targetAssetId] : config.assetIds;
+
     logger.info("========================================");
-    logger.info("Starting epoch roll for all vaults", {
-        vaults: config.assetIds,
+    logger.info(`Starting epoch roll for ${targetAssetId || 'all vaults'}`, {
+        vaults: assetIds,
         runNumber: state.runCount
     });
     logger.info("========================================");
 
     // Initial batch fetch of prices
-    const priceMap = await fetchPricesInBatch(config.assetIds);
+    const priceMap = await fetchPricesInBatch(assetIds);
 
     let allSuccess = true;
-    for (const assetId of config.assetIds) {
+    for (const assetId of assetIds) {
         const success = await runEpochRollForVault(assetId, priceMap.get(assetId));
         if (!success) allSuccess = false;
     }
@@ -457,19 +469,23 @@ async function runEpochRoll(): Promise<boolean> {
 // Settlement Logic
 // ============================================================================
 
-async function runSettlement(): Promise<{ success: boolean; message: string }> {
-    logger.info("Running settlement...");
+async function runSettlement(targetAssetId?: string): Promise<{ success: boolean; message: string }> {
+    const assetId = targetAssetId || config.assetIds[0];
+    logger.info(`Running settlement for ${assetId}...`);
 
     try {
-        // Fetch current oracle price (using primary vault)
-        const primaryAsset = config.assetIds[0];
-        const oraclePrice = await fetchOraclePrice(primaryAsset);
+        const stats = state.vaultStats.get(assetId);
+        if (!stats) {
+            // If no local stats, try to advance anyway (on-chain check will handle)
+            logger.warn(`No local stats for vault ${assetId}, attempting on-chain advance...`);
+        }
+        const oraclePrice = await fetchOraclePrice(assetId);
         if (!oraclePrice) {
-            throw new Error("Failed to fetch oracle price for settlement");
+            throw new Error(`Failed to fetch oracle price for settlement of ${assetId}`);
         }
 
         const currentPrice = oraclePrice.price;
-        const strikePrice = state.epochStrikePrice;
+        const strikePrice = stats?.epochStrikePrice || 0;
 
         logger.info("Settlement price check", {
             currentPrice: currentPrice.toFixed(2),
@@ -481,11 +497,11 @@ async function runSettlement(): Promise<{ success: boolean; message: string }> {
         let payoffAmount = BigInt(0);
         let settlementType = "OTM";
 
-        if (isITM && state.epochNotional > 0) {
+        if (isITM && (stats?.epochNotional || BigInt(0)) > 0) {
             // Calculate payoff: (spot - strike) / spot * notional (simplified)
             const intrinsicValue = currentPrice - strikePrice;
             const payoffRatio = intrinsicValue / currentPrice;
-            payoffAmount = BigInt(Math.floor(Number(state.epochNotional) * payoffRatio));
+            payoffAmount = BigInt(Math.floor(Number(stats?.epochNotional || BigInt(0)) * payoffRatio));
             settlementType = "ITM";
 
             logger.info("ITM settlement", {
@@ -503,8 +519,9 @@ async function runSettlement(): Promise<{ success: boolean; message: string }> {
         // Convert USDC premium to equivalent underlying tokens
         // Premium is in USDC base units (6 decimals), need to convert to underlying tokens
         if (state.onchainClient) {
-            const netPremiumUsdc = state.epochPremiumEarned > payoffAmount
-                ? state.epochPremiumEarned - payoffAmount
+            const epochPremiumEarned = stats?.epochPremiumEarned || BigInt(0);
+            const netPremiumUsdc = epochPremiumEarned > payoffAmount
+                ? epochPremiumEarned - payoffAmount
                 : BigInt(0);
 
             // Convert USDC premium to equivalent underlying tokens
@@ -521,18 +538,20 @@ async function runSettlement(): Promise<{ success: boolean; message: string }> {
                 premiumInTokens: (Number(premiumInTokens) / 1e6).toFixed(6),
             });
 
-            const tx = await state.onchainClient.advanceEpoch(primaryAsset, premiumInTokens);
-            logger.info("Epoch advanced", { tx, assetId: primaryAsset });
+            const tx = await state.onchainClient.advanceEpoch(assetId, premiumInTokens);
+            logger.info("Epoch advanced", { tx, assetId });
         }
 
         // Record settlement values for response
-        const savedStrike = state.epochStrikePrice;
-        const savedPremium = state.epochPremiumEarned;
+        const savedStrike = stats?.epochStrikePrice || 0;
+        const savedPremium = stats?.epochPremiumEarned || BigInt(0);
 
-        // Reset epoch tracking
-        state.epochStrikePrice = 0;
-        state.epochNotional = BigInt(0);
-        state.epochPremiumEarned = BigInt(0);
+        // Reset epoch tracking for this vault
+        if (stats) {
+            stats.epochStrikePrice = 0;
+            stats.epochNotional = BigInt(0);
+            stats.epochPremiumEarned = BigInt(0);
+        }
 
         const netGain = Number(savedPremium - payoffAmount) / 1e6;
 
@@ -626,16 +645,18 @@ function startHealthServer(): void {
     });
 
     app.post("/trigger", async (req: Request, res: Response) => {
-        logEvent("epoch_roll_triggered", { vaults: config.assetIds, manual: true });
-        const success = await runEpochRoll();
-        logEvent("epoch_roll_completed", { vaults: config.assetIds, success });
+        const { assetId } = req.body;
+        logEvent("epoch_roll_triggered", { assetId: assetId || "all", manual: true });
+        const success = await runEpochRoll(assetId);
+        logEvent("epoch_roll_completed", { assetId: assetId || "all", success });
         res.json({ success, message: success ? "Epoch roll completed" : "Epoch roll failed" });
     });
 
     app.post("/settle", async (req: Request, res: Response) => {
-        logEvent("settlement_triggered", { vault: config.assetIds[0], manual: true });
-        const result = await runSettlement();
-        logEvent("settlement_completed", { vault: config.assetIds[0], success: result.success });
+        const { assetId } = req.body;
+        logEvent("settlement_triggered", { assetId: assetId || config.assetIds[0], manual: true });
+        const result = await runSettlement(assetId);
+        logEvent("settlement_completed", { assetId: assetId || config.assetIds[0], success: result.success });
         res.json(result);
     });
 
