@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Loader2, TrendingUp, Wallet, Clock, Vault } from "lucide-react";
 import { useAllVaults } from "../../hooks/useVault";
-import { VAULT_CONFIG, computeTier } from "../../lib/vault-config";
+import { VAULT_CONFIG, computeTier, getPythFeedId } from "../../lib/vault-config";
+import { useState, useEffect } from "react";
+
+const HERMES_URL = "https://hermes.pyth.network";
 
 function formatCurrency(value: number): string {
     return new Intl.NumberFormat("en-US", {
@@ -18,14 +21,65 @@ function formatAPY(value: number): string {
     return `${value.toFixed(1)}%`;
 }
 
+// Calculate next keeper roll time (runs every 6 hours: 0:00, 6:00, 12:00, 18:00 UTC)
+function getNextRollTime(): { hours: number; minutes: number; timeString: string } {
+    const now = new Date();
+    const utcHours = now.getUTCHours();
+    const utcMinutes = now.getUTCMinutes();
+
+    // Find next 6-hour mark
+    const nextRollHour = Math.ceil((utcHours + 1) / 6) * 6;
+    const hoursUntil = nextRollHour - utcHours - 1;
+    const minutesUntil = 60 - utcMinutes;
+
+    const totalMinutes = hoursUntil * 60 + minutesUntil;
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+
+    return {
+        hours: h,
+        minutes: m,
+        timeString: h > 0 ? `${h}h ${m}m` : `${m}m`
+    };
+}
+
 export default function V2EarnDashboard() {
     const { connected } = useWallet();
     const { vaults, loading } = useAllVaults();
+    const [nvdaPrice, setNvdaPrice] = useState<number>(0);
+    const [nextRoll, setNextRoll] = useState(getNextRollTime());
+
+    // Fetch NVDA price for TVL calculation
+    useEffect(() => {
+        const fetchPrice = async () => {
+            const feedId = getPythFeedId("nvdax3");
+            if (!feedId) return;
+            try {
+                const response = await fetch(`${HERMES_URL}/v2/updates/price/latest?ids[]=${feedId}&parsed=true`);
+                const data = await response.json();
+                if (data.parsed?.[0]) {
+                    const priceData = data.parsed[0].price;
+                    setNvdaPrice(parseFloat(priceData.price) * Math.pow(10, priceData.expo));
+                }
+            } catch (e) { console.error(e); }
+        };
+        fetchPrice();
+        const interval = setInterval(fetchPrice, 30000);
+        return () => clearInterval(interval);
+    }, []);
+
+    // Update next roll countdown
+    useEffect(() => {
+        const interval = setInterval(() => setNextRoll(getNextRollTime()), 60000);
+        return () => clearInterval(interval);
+    }, []);
 
     const vaultList = Object.entries(VAULT_CONFIG).map(([id, meta]) => {
         const liveData = vaults[id];
         // Get TVL from on-chain data (in tokens)
         const tvlTokens = liveData?.tvl ?? 0;
+        // Convert to USD
+        const tvlUsd = tvlTokens * nvdaPrice;
         // APY comes from on-chain calculation (default to 0 if not live)
         const apy = liveData?.apy ?? 0;
         // Is vault live on-chain? Demo vaults are always "live" for testing
@@ -42,6 +96,7 @@ export default function V2EarnDashboard() {
             tier,
             apy,
             tvlTokens,
+            tvlUsd,
             isLive,
             isDemo: meta.isDemo,
         };
@@ -49,7 +104,7 @@ export default function V2EarnDashboard() {
 
     const liveVaultCount = vaultList.filter(v => v.isLive).length;
     const avgAPY = vaultList.length > 0 ? vaultList.reduce((sum, v) => sum + v.apy, 0) / vaultList.length : 0;
-    const calculatedTotalTVL = vaultList.reduce((sum, v) => sum + v.tvlTokens, 0);
+    const calculatedTotalTVL = vaultList.reduce((sum, v) => sum + v.tvlUsd, 0);
 
     return (
         <div className="w-full space-y-4">
@@ -79,6 +134,13 @@ export default function V2EarnDashboard() {
                         <div>
                             <p className="text-sm text-muted-foreground">Vaults</p>
                             <p className="text-2xl font-bold text-foreground">{liveVaultCount}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm text-muted-foreground">Next Roll</p>
+                            <div className="flex items-center gap-1">
+                                <Clock className="w-4 h-4 text-yellow-400" />
+                                <p className="text-2xl font-bold text-yellow-400">{nextRoll.timeString}</p>
+                            </div>
                         </div>
                     </div>
 
@@ -210,7 +272,7 @@ export default function V2EarnDashboard() {
                                 </div>
                                 <div>
                                     <p className="text-xs text-muted-foreground">TVL</p>
-                                    <p className="text-lg font-semibold text-foreground">{formatCurrency(vault.tvlTokens)}</p>
+                                    <p className="text-lg font-semibold text-foreground">{formatCurrency(vault.tvlUsd)}</p>
                                 </div>
                             </div>
 
