@@ -32,7 +32,7 @@ export function SidebarDemoPanel({ collapsed = false }: SidebarDemoPanelProps) {
     // Fetch vault state to determine if there's active exposure
     const fetchVaultState = async () => {
         try {
-            const vaultData = await fetchVaultData(connection, "NVDAx");
+            const vaultData = await fetchVaultData(connection, "DemoNVDAx");
             if (vaultData) {
                 const hasExposure = BigInt(vaultData.epochNotionalExposed) > BigInt(0);
                 setVaultState(hasExposure ? "ACTIVE" : "IDLE");

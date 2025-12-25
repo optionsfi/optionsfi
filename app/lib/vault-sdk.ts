@@ -32,6 +32,11 @@ export const VAULTS: Record<string, VaultConfig> = {
         assetId: "NVDAx",
         underlyingMint: NVDAX_MINT,
     },
+    demonvdax: {
+        symbol: "DemoNVDAx",
+        assetId: "DemoNVDAx",
+        underlyingMint: NVDAX_MINT,
+    },
 };
 
 export interface VaultData {
