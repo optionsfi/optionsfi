@@ -18,6 +18,7 @@ pub mod vault {
         ctx: Context<InitializeVault>,
         asset_id: String,
         utilization_cap_bps: u16,
+        min_epoch_duration: i64,
     ) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
         vault.authority = ctx.accounts.authority.key();
@@ -27,10 +28,12 @@ pub mod vault {
         vault.vault_token_account = ctx.accounts.vault_token_account.key();
         vault.premium_mint = ctx.accounts.premium_mint.key();
         vault.premium_token_account = ctx.accounts.premium_token_account.key();
+        vault.share_escrow = ctx.accounts.share_escrow.key();
         vault.total_assets = 0;
         vault.total_shares = 0;
         vault.epoch = 0;
         vault.utilization_cap_bps = utilization_cap_bps;
+        vault.min_epoch_duration = min_epoch_duration;
         vault.last_roll_timestamp = Clock::get()?.unix_timestamp;
         vault.pending_withdrawals = 0;
         vault.epoch_notional_exposed = 0;
@@ -48,7 +51,36 @@ pub mod vault {
 
         // Calculate shares to mint (1:1 if first deposit, otherwise pro-rata)
         let shares_to_mint = if vault.total_shares == 0 {
-            amount
+            require!(amount >= 1000, VaultError::InsufficientLiquidity);
+            // Lock first 1000 shares (dead shares) to prevent inflation attack
+            // We mint them and never add them to total_shares owned by users?
+            // Actually, best practice: Mint them to a dead PDA and COUNT them in total_shares.
+            // This ensures the "price" of 1 share is established as `total_assets / total_shares`.
+            
+            // Mint 1000 shares to 'dead' account
+            let asset_id = vault.asset_id.as_bytes();
+            let seeds = &[
+                b"vault",
+                asset_id,
+                &[vault.bump],
+            ];
+            let signer_seeds = &[&seeds[..]];
+
+            token::mint_to(
+                CpiContext::new_with_signer(
+                    ctx.accounts.token_program.to_account_info(),
+                    MintTo {
+                        mint: ctx.accounts.share_mint.to_account_info(),
+                        to: ctx.accounts.share_escrow.to_account_info(),
+                        authority: vault.to_account_info(),
+                    },
+                    signer_seeds,
+                ),
+                1000,
+            )?;
+            
+            // User gets amount - 1000
+            amount - 1000
         } else {
             // shares = amount * total_shares / total_assets
             (amount as u128)
@@ -102,6 +134,11 @@ pub mod vault {
         vault.total_shares = vault.total_shares
             .checked_add(shares_to_mint)
             .ok_or(VaultError::Overflow)?;
+        
+        // If first deposit, we also added 1000 dead shares to total_shares
+        if vault.total_shares == shares_to_mint {
+             vault.total_shares = vault.total_shares + 1000;
+        }
 
         emit!(DepositEvent {
             vault: vault.key(),
@@ -126,6 +163,19 @@ pub mod vault {
             ctx.accounts.user_share_account.amount >= shares,
             VaultError::InsufficientShares
         );
+
+        // Transfer shares to vault escrow
+        token::transfer(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.user_share_account.to_account_info(),
+                    to: ctx.accounts.share_escrow.to_account_info(),
+                    authority: ctx.accounts.user.to_account_info(),
+                },
+            ),
+            shares,
+        )?;
 
         withdrawal.user = ctx.accounts.user.key();
         withdrawal.vault = vault.key();
@@ -177,13 +227,14 @@ pub mod vault {
         let signer_seeds = &[&seeds[..]];
 
         token::burn(
-            CpiContext::new(
+            CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
                 Burn {
                     mint: ctx.accounts.share_mint.to_account_info(),
-                    from: ctx.accounts.user_share_account.to_account_info(),
-                    authority: ctx.accounts.user.to_account_info(),
+                    from: ctx.accounts.share_escrow.to_account_info(),
+                    authority: vault.to_account_info(), // Vault auth
                 },
+                signer_seeds,
             ),
             shares,
         )?;
@@ -232,6 +283,35 @@ pub mod vault {
     pub fn advance_epoch(ctx: Context<AdvanceEpoch>, premium_earned: u64) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
         let clock = Clock::get()?;
+
+        // 1. Timelock Check
+        require!(
+            clock.unix_timestamp >= vault.last_roll_timestamp + vault.min_epoch_duration,
+            VaultError::EpochTooShort
+        );
+
+        // 2. Unbounded Premium Check (TVL Cap)
+        // Premium shouldn't be > 50% of TVL in a single epoch (sanity check against infinite mint)
+        require!(
+            premium_earned <= vault.total_assets / 2,
+            VaultError::ExcessivePremium
+        );
+
+        // 3. Implied Yield Check
+        // If we have exposure, check that implied yield (premium / exposure) isn't insane (e.g., > 20% flat)
+        if vault.epoch_notional_exposed > 0 {
+             let yield_bps = (premium_earned as u128)
+                .checked_mul(10000)
+                .ok_or(VaultError::Overflow)?
+                .checked_div(vault.epoch_notional_exposed as u128)
+                .ok_or(VaultError::Overflow)?;
+            
+            // 2000 bps = 20% return in a single epoch. That's extremely high.
+            require!(yield_bps <= 2000, VaultError::ExcessiveYield);
+        } else {
+            // No exposure => no premium expected (or very small)
+             require!(premium_earned == 0, VaultError::ExcessivePremium);
+        }
 
         // Store epoch stats before resetting
         let notional_exposed = vault.epoch_notional_exposed;
@@ -371,6 +451,13 @@ pub mod vault {
             amount,
         )?;
 
+        // Verify recipient is whitelisted
+        let whitelist = &ctx.accounts.whitelist;
+        require!(
+            whitelist.market_makers.contains(&ctx.accounts.recipient.key()),
+            VaultError::NotWhitelisted
+        );
+
         emit!(SettlementPaidEvent {
             vault: vault.key(),
             recipient: ctx.accounts.recipient.key(),
@@ -444,6 +531,26 @@ pub mod vault {
         msg!("Created metadata for share token: {}", ctx.accounts.share_mint.key());
         Ok(())
     }
+
+    /// Initialize the market maker whitelist
+    pub fn initialize_whitelist(ctx: Context<InitializeWhitelist>) -> Result<()> {
+        let whitelist = &mut ctx.accounts.whitelist;
+        whitelist.authority = ctx.accounts.authority.key();
+        whitelist.vault = ctx.accounts.vault.key();
+        whitelist.market_makers = Vec::new(); // Maximum 10 MMs
+        whitelist.bump = ctx.bumps.whitelist;
+        Ok(())
+    }
+
+    /// Add a market maker to the whitelist
+    pub fn add_market_maker(ctx: Context<AddMarketMaker>, market_maker: Pubkey) -> Result<()> {
+        let whitelist = &mut ctx.accounts.whitelist;
+        require!(whitelist.market_makers.len() < 10, VaultError::WhitelistFull);
+        require!(!whitelist.market_makers.contains(&market_maker), VaultError::AlreadyWhitelisted);
+
+        whitelist.market_makers.push(market_maker);
+        Ok(())
+    }
 }
 
 // ============================================================================
@@ -460,11 +567,14 @@ pub struct Vault {
     // USDC premium escrow
     pub premium_mint: Pubkey,
     pub premium_token_account: Pubkey,
+    // Share escrow for withdrawals
+    pub share_escrow: Pubkey,
     // State
     pub total_assets: u64,
     pub total_shares: u64,
     pub epoch: u64,
     pub utilization_cap_bps: u16,
+    pub min_epoch_duration: i64,
     pub last_roll_timestamp: i64,
     pub pending_withdrawals: u64,
     // Notional-based exposure tracking
@@ -483,6 +593,14 @@ pub struct WithdrawalRequest {
     pub processed: bool,
 }
 
+#[account]
+pub struct VaultWhitelist {
+    pub authority: Pubkey,
+    pub vault: Pubkey,
+    pub market_makers: Vec<Pubkey>,
+    pub bump: u8,
+}
+
 // ============================================================================
 // Contexts
 // ============================================================================
@@ -494,8 +612,8 @@ pub struct InitializeVault<'info> {
         init,
         payer = authority,
         // Space: 8 (discriminator) + 32 (authority) + 68 (asset_id string max) 
-        //        + 32*5 (mints and accounts) + 8*6 (u64 fields) + 2 + 8 + 4 + 1
-        space = 8 + 32 + 68 + 32 + 32 + 32 + 32 + 32 + 8 + 8 + 8 + 2 + 8 + 8 + 8 + 8 + 4 + 1,
+        //        + 32*6 (mints and accounts) + 8*6 (u64 fields) + 2 + 8 + 4 + 1
+        space = 8 + 32 + 68 + 32 + 32 + 32 + 32 + 32 + 32 + 8 + 8 + 8 + 2 + 8 + 8 + 8 + 8 + 4 + 1,
         seeds = [b"vault", asset_id.as_bytes()],
         bump
     )]
@@ -527,6 +645,16 @@ pub struct InitializeVault<'info> {
         token::authority = vault,
     )]
     pub premium_token_account: Account<'info, TokenAccount>,
+
+    #[account(
+        init,
+        payer = authority,
+        token::mint = share_mint,
+        token::authority = vault,
+        seeds = [b"share_escrow", vault.key().as_ref()],
+        bump
+    )]
+    pub share_escrow: Account<'info, TokenAccount>,
 
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -569,6 +697,12 @@ pub struct Deposit<'info> {
     )]
     pub user_share_account: Account<'info, TokenAccount>,
 
+    #[account(
+        mut,
+        address = vault.share_escrow
+    )]
+    pub share_escrow: Account<'info, TokenAccount>,
+
     #[account(mut)]
     pub user: Signer<'info>,
 
@@ -593,13 +727,23 @@ pub struct RequestWithdrawal<'info> {
     )]
     pub withdrawal_request: Account<'info, WithdrawalRequest>,
 
-    #[account(token::mint = vault.share_mint)]
+    #[account(
+        mut,
+        address = vault.share_escrow
+    )]
+    pub share_escrow: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        token::mint = vault.share_mint
+    )]
     pub user_share_account: Account<'info, TokenAccount>,
 
     #[account(mut)]
     pub user: Signer<'info>,
 
     pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
 }
 
 #[derive(Accounts)]
@@ -638,9 +782,9 @@ pub struct ProcessWithdrawal<'info> {
 
     #[account(
         mut,
-        token::mint = vault.share_mint
+        address = vault.share_escrow
     )]
-    pub user_share_account: Account<'info, TokenAccount>,
+    pub share_escrow: Account<'info, TokenAccount>,
 
     #[account(mut)]
     pub user: Signer<'info>,
@@ -710,6 +854,13 @@ pub struct PaySettlement<'info> {
     pub vault: Account<'info, Vault>,
 
     #[account(
+        seeds = [b"whitelist", vault.key().as_ref()],
+        bump = whitelist.bump,
+        has_one = vault
+    )]
+    pub whitelist: Account<'info, VaultWhitelist>,
+
+    #[account(
         mut,
         address = vault.premium_token_account
     )]
@@ -721,12 +872,57 @@ pub struct PaySettlement<'info> {
     )]
     pub recipient_token_account: Account<'info, TokenAccount>,
 
-    /// CHECK: Recipient can be any account
+    /// CHECK: Recipient must be in the whitelist
     pub recipient: AccountInfo<'info>,
 
     pub authority: Signer<'info>,
 
     pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
+pub struct InitializeWhitelist<'info> {
+    #[account(
+        seeds = [b"vault", vault.asset_id.as_bytes()],
+        bump = vault.bump,
+        has_one = authority
+    )]
+    pub vault: Account<'info, Vault>,
+
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + 32 + 32 + (4 + 32 * 10) + 1, // Max 10 MMs
+        seeds = [b"whitelist", vault.key().as_ref()],
+        bump
+    )]
+    pub whitelist: Account<'info, VaultWhitelist>,
+
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct AddMarketMaker<'info> {
+    #[account(
+        seeds = [b"vault", vault.asset_id.as_bytes()],
+        bump = vault.bump,
+        has_one = authority
+    )]
+    pub vault: Account<'info, Vault>,
+
+    #[account(
+        mut,
+        seeds = [b"whitelist", vault.key().as_ref()],
+        bump = whitelist.bump,
+        has_one = vault,
+        has_one = authority
+    )]
+    pub whitelist: Account<'info, VaultWhitelist>,
+
+    #[account(mut)]
+    pub authority: Signer<'info>,
 }
 
 #[derive(Accounts)]
@@ -848,4 +1044,18 @@ pub enum VaultError {
     Overflow,
     #[msg("Exceeds utilization cap")]
     ExceedsUtilizationCap,
+    #[msg("Recipient is not whitelisted")]
+    NotWhitelisted,
+    #[msg("Whitelist is full")]
+    WhitelistFull,
+    #[msg("Market maker already whitelisted")]
+    AlreadyWhitelisted,
+    #[msg("Insufficient liquidity for first deposit")]
+    InsufficientLiquidity,
+    #[msg("Epoch duration too short")]
+    EpochTooShort,
+    #[msg("Premium exceeds safety limits")]
+    ExcessivePremium,
+    #[msg("Implied yield too high")]
+    ExcessiveYield,
 }

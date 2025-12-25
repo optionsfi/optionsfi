@@ -46,6 +46,13 @@ export function deriveWithdrawalPda(
     );
 }
 
+export function deriveShareEscrowPda(vaultPda: PublicKey): [PublicKey, number] {
+    return PublicKey.findProgramAddressSync(
+        [Buffer.from("share_escrow"), vaultPda.toBuffer()],
+        VAULT_PROGRAM_ID
+    );
+}
+
 // ============================================================================
 // Vault Data Interface
 // ============================================================================
@@ -58,6 +65,7 @@ export interface VaultData {
     vaultTokenAccount: PublicKey;
     premiumMint: PublicKey;
     premiumTokenAccount: PublicKey;
+    shareEscrow: PublicKey;
     totalAssets: bigint;
     totalShares: bigint;
     epoch: bigint;
@@ -141,6 +149,7 @@ export class OnChainClient {
                 vaultTokenAccount: vault.vaultTokenAccount as PublicKey,
                 premiumMint: vault.premiumMint as PublicKey,
                 premiumTokenAccount: vault.premiumTokenAccount as PublicKey,
+                shareEscrow: vault.shareEscrow as PublicKey,
                 totalAssets: BigInt((vault.totalAssets as anchor.BN).toString()),
                 totalShares: BigInt((vault.totalShares as anchor.BN).toString()),
                 epoch: BigInt((vault.epoch as anchor.BN).toString()),

@@ -37,6 +37,16 @@ export const VAULTS: Record<string, VaultConfig> = {
         assetId: "DemoNVDAx",
         underlyingMint: NVDAX_MINT,
     },
+    demonvdax2: {
+        symbol: "DemoNVDAx2",
+        assetId: "DemoNVDAx2",
+        underlyingMint: NVDAX_MINT,
+    },
+    demonvdax3: {
+        symbol: "DemoNVDAx3",
+        assetId: "DemoNVDAx3",
+        underlyingMint: NVDAX_MINT,
+    },
 };
 
 export interface VaultData {
@@ -46,6 +56,7 @@ export interface VaultData {
     underlyingMint: string;
     shareMint: string;
     vaultTokenAccount: string;
+    shareEscrow: string;
     epoch: number;
     totalAssets: string;
     totalShares: string;
@@ -53,6 +64,7 @@ export interface VaultData {
     apy: number;
     tvl: number;
     utilizationCapBps: number;
+    minEpochDuration: number;
     pendingWithdrawals: string;
     // Notional exposure tracking (fractional options)
     epochNotionalExposed: string;      // Total tokens exposed to options this epoch
@@ -99,6 +111,16 @@ export function deriveWithdrawalPda(vaultPda: PublicKey, userPubkey: PublicKey, 
     const epochBuffer = epochBN.toArrayLike(Buffer, "le", 8);
     return PublicKey.findProgramAddressSync(
         [Buffer.from("withdrawal"), vaultPda.toBuffer(), userPubkey.toBuffer(), epochBuffer],
+        VAULT_PROGRAM_ID
+    );
+}
+
+/**
+ * Derive the share escrow PDA
+ */
+export function deriveShareEscrowPda(vaultPda: PublicKey): [PublicKey, number] {
+    return PublicKey.findProgramAddressSync(
+        [Buffer.from("share_escrow"), vaultPda.toBuffer()],
         VAULT_PROGRAM_ID
     );
 }
@@ -162,6 +184,7 @@ export async function fetchVaultData(
                 underlyingMint: vaultAccount.underlyingMint.toBase58(),
                 shareMint: vaultAccount.shareMint.toBase58(),
                 vaultTokenAccount: vaultAccount.vaultTokenAccount.toBase58(),
+                shareEscrow: vaultAccount.shareEscrow.toBase58(),
                 epoch: Number(vaultAccount.epoch),
                 totalAssets: vaultAccount.totalAssets.toString(),
                 totalShares: vaultAccount.totalShares.toString(),
@@ -169,6 +192,7 @@ export async function fetchVaultData(
                 apy,
                 tvl,
                 utilizationCapBps: Number(vaultAccount.utilizationCapBps),
+                minEpochDuration: Number(vaultAccount.minEpochDuration || 0),
                 pendingWithdrawals: vaultAccount.pendingWithdrawals.toString(),
                 // Notional exposure tracking (with fallbacks for existing vaults)
                 epochNotionalExposed: (vaultAccount.epochNotionalExposed || 0).toString(),
@@ -282,6 +306,7 @@ export async function buildRequestWithdrawalTransaction(
 
     // Derive withdrawal PDA with epoch
     const [withdrawalPda] = deriveWithdrawalPda(vaultPda, wallet.publicKey, epoch);
+    const [shareEscrowPda] = deriveShareEscrowPda(vaultPda);
 
     const userShareAccount = await getAssociatedTokenAddress(
         shareMint,
@@ -295,6 +320,7 @@ export async function buildRequestWithdrawalTransaction(
         .accounts({
             vault: vaultPda,
             withdrawalRequest: withdrawalPda,
+            shareEscrow: shareEscrowPda,
             userShareAccount: userShareAccount,
             user: wallet.publicKey,
             systemProgram: SystemProgram.programId,
@@ -332,14 +358,10 @@ export async function buildProcessWithdrawalTransaction(
     const currentEpoch = Number(vaultAccount.epoch);
     const requestEpoch = currentEpoch > 0 ? currentEpoch - 1 : 0;
     const [withdrawalPda] = deriveWithdrawalPda(vaultPda, wallet.publicKey, requestEpoch);
+    const [shareEscrowPda] = deriveShareEscrowPda(vaultPda);
 
     const userTokenAccount = await getAssociatedTokenAddress(
         config.underlyingMint,
-        wallet.publicKey
-    );
-
-    const userShareAccount = await getAssociatedTokenAddress(
-        shareMint,
         wallet.publicKey
     );
 
@@ -353,7 +375,7 @@ export async function buildProcessWithdrawalTransaction(
             shareMint: shareMint,
             vaultTokenAccount: vaultTokenAccount,
             userTokenAccount: userTokenAccount,
-            userShareAccount: userShareAccount,
+            shareEscrow: shareEscrowPda,
             user: wallet.publicKey,
             tokenProgram: TOKEN_PROGRAM_ID,
         })

@@ -8,6 +8,90 @@
   },
   "instructions": [
     {
+      "name": "add_market_maker",
+      "docs": [
+        "Add a market maker to the whitelist"
+      ],
+      "discriminator": [
+        24,
+        255,
+        135,
+        32,
+        193,
+        2,
+        112,
+        44
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.asset_id",
+                "account": "Vault"
+              }
+            ]
+          },
+          "relations": [
+            "whitelist"
+          ]
+        },
+        {
+          "name": "whitelist",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  104,
+                  105,
+                  116,
+                  101,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "vault",
+            "whitelist"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "market_maker",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
       "name": "advance_epoch",
       "docs": [
         "Advance epoch (called by keeper after settlement)",
@@ -271,6 +355,10 @@
           "writable": true
         },
         {
+          "name": "share_escrow",
+          "writable": true
+        },
+        {
           "name": "user",
           "writable": true,
           "signer": true
@@ -347,6 +435,35 @@
           "signer": true
         },
         {
+          "name": "share_escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  104,
+                  97,
+                  114,
+                  101,
+                  95,
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              }
+            ]
+          }
+        },
+        {
           "name": "authority",
           "writable": true,
           "signer": true
@@ -372,8 +489,91 @@
         {
           "name": "utilization_cap_bps",
           "type": "u16"
+        },
+        {
+          "name": "min_epoch_duration",
+          "type": "i64"
         }
       ]
+    },
+    {
+      "name": "initialize_whitelist",
+      "docs": [
+        "Initialize the market maker whitelist"
+      ],
+      "discriminator": [
+        223,
+        228,
+        11,
+        219,
+        112,
+        174,
+        108,
+        18
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.asset_id",
+                "account": "Vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "whitelist",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  104,
+                  105,
+                  116,
+                  101,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "vault"
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
     },
     {
       "name": "pay_settlement",
@@ -410,6 +610,34 @@
                 "kind": "account",
                 "path": "vault.asset_id",
                 "account": "Vault"
+              }
+            ]
+          },
+          "relations": [
+            "whitelist"
+          ]
+        },
+        {
+          "name": "whitelist",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  104,
+                  105,
+                  116,
+                  101,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
               }
             ]
           }
@@ -503,7 +731,7 @@
           "writable": true
         },
         {
-          "name": "user_share_account",
+          "name": "share_escrow",
           "writable": true
         },
         {
@@ -656,7 +884,12 @@
           }
         },
         {
-          "name": "user_share_account"
+          "name": "share_escrow",
+          "writable": true
+        },
+        {
+          "name": "user_share_account",
+          "writable": true
         },
         {
           "name": "user",
@@ -666,6 +899,10 @@
         {
           "name": "system_program",
           "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
       ],
       "args": [
@@ -688,6 +925,19 @@
         152,
         117,
         119
+      ]
+    },
+    {
+      "name": "VaultWhitelist",
+      "discriminator": [
+        82,
+        19,
+        233,
+        96,
+        174,
+        0,
+        57,
+        17
       ]
     },
     {
@@ -832,6 +1082,41 @@
       "code": 6006,
       "name": "ExceedsUtilizationCap",
       "msg": "Exceeds utilization cap"
+    },
+    {
+      "code": 6007,
+      "name": "NotWhitelisted",
+      "msg": "Recipient is not whitelisted"
+    },
+    {
+      "code": 6008,
+      "name": "WhitelistFull",
+      "msg": "Whitelist is full"
+    },
+    {
+      "code": 6009,
+      "name": "AlreadyWhitelisted",
+      "msg": "Market maker already whitelisted"
+    },
+    {
+      "code": 6010,
+      "name": "InsufficientLiquidity",
+      "msg": "Insufficient liquidity for first deposit"
+    },
+    {
+      "code": 6011,
+      "name": "EpochTooShort",
+      "msg": "Epoch duration too short"
+    },
+    {
+      "code": 6012,
+      "name": "ExcessivePremium",
+      "msg": "Premium exceeds safety limits"
+    },
+    {
+      "code": 6013,
+      "name": "ExcessiveYield",
+      "msg": "Implied yield too high"
     }
   ],
   "types": [
@@ -1017,6 +1302,10 @@
             "type": "pubkey"
           },
           {
+            "name": "share_escrow",
+            "type": "pubkey"
+          },
+          {
             "name": "total_assets",
             "type": "u64"
           },
@@ -1031,6 +1320,10 @@
           {
             "name": "utilization_cap_bps",
             "type": "u16"
+          },
+          {
+            "name": "min_epoch_duration",
+            "type": "i64"
           },
           {
             "name": "last_roll_timestamp",
@@ -1051,6 +1344,32 @@
           {
             "name": "epoch_premium_per_token_bps",
             "type": "u32"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VaultWhitelist",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "market_makers",
+            "type": {
+              "vec": "pubkey"
+            }
           },
           {
             "name": "bump",
