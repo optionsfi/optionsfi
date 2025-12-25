@@ -45,7 +45,7 @@ function getNextRollTime(): { hours: number; minutes: number; timeString: string
 
 export default function V2EarnDashboard() {
     const { connected } = useWallet();
-    const { vaults, loading } = useAllVaults();
+    const { vaults, userBalances, loading } = useAllVaults();
     const [nvdaPrice, setNvdaPrice] = useState<number>(0);
     const [nextRoll, setNextRoll] = useState(getNextRollTime());
 
@@ -76,10 +76,18 @@ export default function V2EarnDashboard() {
 
     const vaultList = Object.entries(VAULT_CONFIG).map(([id, meta]) => {
         const liveData = vaults[id];
+        const userShares = userBalances[id] ?? 0;
+
         // Get TVL from on-chain data (in tokens)
         const tvlTokens = liveData?.tvl ?? 0;
+        const sharePrice = liveData?.sharePrice ?? 1.0;
+
         // Convert to USD
         const tvlUsd = tvlTokens * nvdaPrice;
+
+        // User balance in USD: shares * sharePrice (tokens per share) * price
+        const userValueUsd = (userShares / 1e6) * sharePrice * nvdaPrice;
+
         // APY comes from on-chain calculation (default to 0 if not live)
         const apy = liveData?.apy ?? 0;
         // Is vault live on-chain? Demo vaults are always "live" for testing
@@ -97,6 +105,8 @@ export default function V2EarnDashboard() {
             apy,
             tvlTokens,
             tvlUsd,
+            userShares,
+            userValueUsd,
             isLive,
             isDemo: meta.isDemo,
         };
@@ -173,10 +183,7 @@ export default function V2EarnDashboard() {
                     <div className="rounded-xl border border-border bg-secondary/30 p-6">
                         {/* Show positions from vaults where user has shares */}
                         {(() => {
-                            const userVaults = vaultList.filter(v => {
-                                const vaultData = vaults[v.id];
-                                return vaultData && Number(vaultData.totalShares) > 0;
-                            });
+                            const userVaults = vaultList.filter(v => v.userShares > 0);
 
                             if (userVaults.length === 0) {
                                 return (
@@ -203,7 +210,7 @@ export default function V2EarnDashboard() {
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <p className="font-medium text-foreground">{formatCurrency(vault.tvlTokens)}</p>
+                                                <p className="font-medium text-foreground">{formatCurrency(vault.userValueUsd)}</p>
                                                 <p className="text-xs text-green-400">{formatAPY(vault.apy)} APY</p>
                                             </div>
                                         </Link>
@@ -283,7 +290,7 @@ export default function V2EarnDashboard() {
                                     <Clock className="w-3 h-3" />
                                     Next Roll
                                 </span>
-                                <span className="text-sm font-medium text-foreground">{vault.isLive ? "Active" : "Pending"}</span>
+                                <span className="text-sm font-medium text-foreground">{vault.isLive ? nextRoll.timeString : "Pending"}</span>
                             </div>
                         </Link>
                     ))}

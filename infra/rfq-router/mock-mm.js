@@ -131,8 +131,8 @@ function handleMessage(msg) {
         rfqVaults[msg.rfqId] = msg.underlying;
 
         // Generate quote with realistic spread
-        // Premium = size (tokens) * spotPrice * premiumPercent (~1-1.5% for weekly OTM calls)
-        const premiumPercent = 0.01 + Math.random() * 0.005;
+        // Premium = size (tokens) * spotPrice * premiumPercent (~0.2% for 6h OTM calls)
+        const premiumPercent = 0.002 + Math.random() * 0.001;
         // Use strike as proxy for spot price (strike is 10% OTM)
         const spotPrice = msg.strike / 1.10;
         // Premium in USD = size_tokens * price * percent

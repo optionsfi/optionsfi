@@ -349,7 +349,9 @@ export function useVault(assetId: string): UseVaultReturn {
  */
 export function useAllVaults() {
     const { connection } = useConnection();
+    const { publicKey } = useWallet();
     const [vaults, setVaults] = useState<Record<string, VaultData | null>>({});
+    const [userBalances, setUserBalances] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const isInitialLoad = useRef(true);
@@ -363,23 +365,34 @@ export function useAllVaults() {
             }
             setError(null);
 
-            const results: Record<string, VaultData | null> = {};
+            const vaultResults: Record<string, VaultData | null> = {};
+            const balanceResults: Record<string, number> = {};
 
-            for (const [key, config] of Object.entries(VAULTS)) {
+            const vaultEntries = Object.entries(VAULTS);
+            await Promise.all(vaultEntries.map(async ([key, config]) => {
                 try {
                     const data = await fetchVaultData(connection, config.assetId);
-                    results[key] = data;
+                    vaultResults[key] = data;
+
+                    if (publicKey) {
+                        const balance = await getUserShareBalance(connection, publicKey, config.assetId);
+                        balanceResults[key] = balance;
+                    } else {
+                        balanceResults[key] = 0;
+                    }
                 } catch (err) {
                     console.error(`Error fetching ${key}:`, err);
-                    results[key] = null;
+                    vaultResults[key] = null;
+                    balanceResults[key] = 0;
                 }
-            }
+            }));
 
             // Only update state if data actually changed (prevents visual flicker)
-            const newHash = JSON.stringify(results);
+            const newHash = JSON.stringify({ vaultResults, balanceResults });
             if (newHash !== lastDataHash.current) {
                 lastDataHash.current = newHash;
-                setVaults(results);
+                setVaults(vaultResults);
+                setUserBalances(balanceResults);
             }
         } catch (err: any) {
             console.error("Error fetching vaults:", err);
@@ -390,7 +403,7 @@ export function useAllVaults() {
                 setLoading(false);
             }
         }
-    }, [connection]);
+    }, [connection, publicKey]);
 
     useEffect(() => {
         fetchData();
@@ -398,7 +411,7 @@ export function useAllVaults() {
         return () => clearInterval(interval);
     }, [fetchData]);
 
-    return { vaults, loading, error, refresh: fetchData };
+    return { vaults, userBalances, loading, error, refresh: fetchData };
 }
 
 /**

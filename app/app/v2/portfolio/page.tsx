@@ -46,16 +46,33 @@ interface Position {
     vaultApy: number;
 }
 
-const getEpochTiming = () => {
+function getNextRollTime(): { hours: number; minutes: number; timeString: string } {
     const now = new Date();
-    const daysUntilSaturday = (6 - now.getUTCDay() + 7) % 7 || 7;
-    const remaining = daysUntilSaturday * 24 * 3600 + (24 - now.getUTCHours()) * 3600;
-    const days = Math.floor(remaining / 86400);
-    const hours = Math.floor((remaining % 86400) / 3600);
+    const utcHours = now.getUTCHours();
+    const utcMinutes = now.getUTCMinutes();
+
+    // Find next 6-hour mark
+    const nextRollHour = Math.ceil((utcHours + 1) / 6) * 6;
+    const hoursUntil = nextRollHour - utcHours - 1;
+    const minutesUntil = 60 - utcMinutes;
+
+    const totalMinutes = hoursUntil * 60 + minutesUntil;
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+
     return {
-        nextRollIn: `${days}d ${hours}h`,
-        withdrawUnlockIn: `${days}d ${hours}h`,
-        epochProgress: Math.floor(((7 - days) / 7) * 100),
+        hours: h,
+        minutes: m,
+        timeString: h > 0 ? `${h}h ${m}m` : `${m}m`
+    };
+}
+
+const getEpochTiming = () => {
+    const next = getNextRollTime();
+    return {
+        nextRollIn: next.timeString,
+        withdrawUnlockIn: next.timeString,
+        epochProgress: Math.floor(((6 - next.hours) / 6) * 100),
     };
 };
 
@@ -360,7 +377,7 @@ function ManagePositionModal({
 
 export default function PortfolioPage() {
     const { connected, publicKey } = useWallet();
-    const { vaults, loading } = useAllVaults();
+    const { vaults, userBalances, loading } = useAllVaults();
     const { activities: walletActivities, loading: activitiesLoading, refresh: refreshActivities } = useWalletActivity();
     const { prices: oraclePrices, loading: pricesLoading, getPrice } = usePythPrices();
 
@@ -407,27 +424,27 @@ export default function PortfolioPage() {
 
         // First pass: calculate total value
         Object.entries(vaults).forEach(([id, vault]) => {
-            if (vault && vault.tvl > 0) {
+            const userShares = userBalances[id] ?? 0;
+            if (vault && userShares > 0) {
                 const meta = VAULT_METADATA[id];
                 if (!meta) return;
                 const oraclePrice = getPrice(meta.symbol) || 0;
-                const userShares = vault.tvl;
                 const sharePrice = vault.sharePrice || 1;
-                const sharesUsd = userShares * sharePrice * oraclePrice;
+                const sharesUsd = (userShares / 1e6) * sharePrice * oraclePrice;
                 totalValue += sharesUsd;
             }
         });
 
         // Second pass: build positions
         Object.entries(vaults).forEach(([id, vault]) => {
-            if (vault && vault.tvl > 0) {
+            const userShares = userBalances[id] ?? 0;
+            if (vault && userShares > 0) {
                 const meta = VAULT_METADATA[id];
                 if (!meta) return;
 
                 const oraclePrice = getPrice(meta.symbol) || 0;
-                const userShares = vault.tvl;
                 const sharePrice = vault.sharePrice || 1;
-                const sharesUsd = userShares * sharePrice * oraclePrice;
+                const sharesUsd = (userShares / 1e6) * sharePrice * oraclePrice;
 
                 // Get cost basis from deposit history
                 const costBasis = costBasisByVault[id] || sharesUsd; // Default to current value if no history
