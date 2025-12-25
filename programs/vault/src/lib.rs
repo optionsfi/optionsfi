@@ -39,6 +39,7 @@ pub mod vault {
         vault.epoch_notional_exposed = 0;
         vault.epoch_premium_earned = 0;
         vault.epoch_premium_per_token_bps = 0;
+        vault.is_paused = false;
         vault.bump = ctx.bumps.vault;
         Ok(())
     }
@@ -48,6 +49,9 @@ pub mod vault {
         require!(amount > 0, VaultError::ZeroAmount);
 
         let vault = &mut ctx.accounts.vault;
+
+        // SECURITY: Check if vault is paused
+        require!(!vault.is_paused, VaultError::VaultPaused);
 
         // Calculate shares to mint
         // effective_total_shares = total_shares + virtual_offset
@@ -142,6 +146,9 @@ pub mod vault {
         let vault = &mut ctx.accounts.vault;
         let withdrawal = &mut ctx.accounts.withdrawal_request;
 
+        // SECURITY: Check if vault is paused
+        require!(!vault.is_paused, VaultError::VaultPaused);
+
         // Check user has enough shares
         require!(
             ctx.accounts.user_share_account.amount >= shares,
@@ -203,6 +210,12 @@ pub mod vault {
             .ok_or(VaultError::Overflow)?
             .checked_div(effective_shares as u128)
             .ok_or(VaultError::Overflow)? as u64;
+
+        // SECURITY FIX H-1: Verify vault has sufficient assets
+        require!(
+            vault.total_assets >= amount,
+            VaultError::InsufficientVaultBalance
+        );
 
         // Burn user's shares
         let asset_id = vault.asset_id.as_bytes();
@@ -413,10 +426,24 @@ pub mod vault {
 
     /// Pay out to market maker for ITM settlement
     /// Only callable by vault authority
+    /// SECURITY: Settlement capped at epoch premium earned
     pub fn pay_settlement(ctx: Context<PaySettlement>, amount: u64) -> Result<()> {
         require!(amount > 0, VaultError::ZeroAmount);
 
+        // SECURITY FIX C-1: Verify recipient is whitelisted BEFORE transfer
+        let whitelist = &ctx.accounts.whitelist;
+        require!(
+            whitelist.market_makers.contains(&ctx.accounts.recipient.key()),
+            VaultError::NotWhitelisted
+        );
+
+        // SECURITY FIX H-2: Cap settlements at epoch premium earned
         let vault = &ctx.accounts.vault;
+        require!(
+            amount <= vault.epoch_premium_earned,
+            VaultError::ExcessiveSettlement
+        );
+
         let asset_id = vault.asset_id.as_bytes();
         let seeds = &[
             b"vault",
@@ -437,13 +464,6 @@ pub mod vault {
             ),
             amount,
         )?;
-
-        // Verify recipient is whitelisted
-        let whitelist = &ctx.accounts.whitelist;
-        require!(
-            whitelist.market_makers.contains(&ctx.accounts.recipient.key()),
-            VaultError::NotWhitelisted
-        );
 
         emit!(SettlementPaidEvent {
             vault: vault.key(),
@@ -538,6 +558,15 @@ pub mod vault {
         whitelist.market_makers.push(market_maker);
         Ok(())
     }
+
+    /// SECURITY: Pause or unpause the vault (emergency control)
+    /// When paused, deposits and withdrawal requests are blocked
+    pub fn set_pause(ctx: Context<SetPause>, paused: bool) -> Result<()> {
+        let vault = &mut ctx.accounts.vault;
+        vault.is_paused = paused;
+        msg!("Vault pause status set to: {}", paused);
+        Ok(())
+    }
 }
 
 // ============================================================================
@@ -571,6 +600,8 @@ pub struct Vault {
     pub epoch_notional_exposed: u64,
     pub epoch_premium_earned: u64,
     pub epoch_premium_per_token_bps: u32,
+    /// SECURITY: Emergency pause flag
+    pub is_paused: bool,
     pub bump: u8,
 }
 
@@ -602,8 +633,8 @@ pub struct InitializeVault<'info> {
         init,
         payer = authority,
         // Space: 8 (discriminator) + 32 (authority) + 68 (asset_id string max) 
-        //        + 32*6 (mints and accounts) + 8*7 (u64 fields incl virtual_offset) + 2 + 8 + 4 + 1
-        space = 8 + 32 + 68 + 32 + 32 + 32 + 32 + 32 + 32 + 8 + 8 + 8 + 8 + 2 + 8 + 8 + 8 + 8 + 4 + 1,
+        //        + 32*6 (mints and accounts) + 8*7 (u64 fields incl virtual_offset) + 2 + 8 + 4 + 1 (is_paused) + 1 (bump)
+        space = 8 + 32 + 68 + 32 + 32 + 32 + 32 + 32 + 32 + 8 + 8 + 8 + 8 + 2 + 8 + 8 + 8 + 8 + 4 + 1 + 1,
         seeds = [b"vault", asset_id.as_bytes()],
         bump
     )]
@@ -916,6 +947,19 @@ pub struct AddMarketMaker<'info> {
 }
 
 #[derive(Accounts)]
+pub struct SetPause<'info> {
+    #[account(
+        mut,
+        seeds = [b"vault", vault.asset_id.as_bytes()],
+        bump = vault.bump,
+        has_one = authority
+    )]
+    pub vault: Account<'info, Vault>,
+
+    pub authority: Signer<'info>,
+}
+
+#[derive(Accounts)]
 pub struct CreateShareMetadata<'info> {
     #[account(
         seeds = [b"vault", vault.asset_id.as_bytes()],
@@ -1048,4 +1092,10 @@ pub enum VaultError {
     ExcessivePremium,
     #[msg("Implied yield too high")]
     ExcessiveYield,
+    #[msg("Settlement exceeds epoch premium earned")]
+    ExcessiveSettlement,
+    #[msg("Insufficient vault balance for withdrawal")]
+    InsufficientVaultBalance,
+    #[msg("Vault is paused")]
+    VaultPaused,
 }

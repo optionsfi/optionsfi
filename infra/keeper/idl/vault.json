@@ -579,7 +579,8 @@
       "name": "pay_settlement",
       "docs": [
         "Pay out to market maker for ITM settlement",
-        "Only callable by vault authority"
+        "Only callable by vault authority",
+        "SECURITY: Settlement capped at epoch premium earned"
       ],
       "discriminator": [
         65,
@@ -911,6 +912,61 @@
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "set_pause",
+      "docs": [
+        "SECURITY: Pause or unpause the vault (emergency control)",
+        "When paused, deposits and withdrawal requests are blocked"
+      ],
+      "discriminator": [
+        63,
+        32,
+        154,
+        2,
+        56,
+        103,
+        79,
+        45
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.asset_id",
+                "account": "Vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "vault"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "paused",
+          "type": "bool"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -1117,6 +1173,21 @@
       "code": 6013,
       "name": "ExcessiveYield",
       "msg": "Implied yield too high"
+    },
+    {
+      "code": 6014,
+      "name": "ExcessiveSettlement",
+      "msg": "Settlement exceeds epoch premium earned"
+    },
+    {
+      "code": 6015,
+      "name": "InsufficientVaultBalance",
+      "msg": "Insufficient vault balance for withdrawal"
+    },
+    {
+      "code": 6016,
+      "name": "VaultPaused",
+      "msg": "Vault is paused"
     }
   ],
   "types": [
@@ -1352,6 +1423,13 @@
           {
             "name": "epoch_premium_per_token_bps",
             "type": "u32"
+          },
+          {
+            "name": "is_paused",
+            "docs": [
+              "SECURITY: Emergency pause flag"
+            ],
+            "type": "bool"
           },
           {
             "name": "bump",
