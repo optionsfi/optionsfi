@@ -449,7 +449,11 @@ async function runEpochRollForVault(assetId: string, preFetchedPrice?: OraclePri
 // Wrapper function to run epoch roll for specific or all vaults
 async function runEpochRoll(targetAssetId?: string): Promise<boolean> {
     if (state.isRunning) {
-        logger.warn("Epoch roll already in progress");
+        logger.warn("Epoch roll already in progress", {
+            runCount: state.runCount,
+            lastRunTime: state.lastRunTime,
+            timeSinceLastRun: state.lastRunTime ? (Date.now() - state.lastRunTime) : "never"
+        });
         return false;
     }
 
@@ -512,6 +516,10 @@ async function checkVaultLifecycle(): Promise<void> {
             // 2. Roll Check: If not active (idle) -> Roll immediately
             // This ensures we don't wait for a full duration of "empty" time after settlement
             else if (!isLive) {
+                logger.info(`Lifecycle: Idle check for ${assetId}`, {
+                    now, lastRoll, minDuration, isRunning: state.isRunning
+                });
+
                 // If the vault is idle, we should try to roll to keep capital utilized.
                 // The 'runEpochRoll' function has internal checks for capacity/errors.
                 logger.info(`Lifecycle: Roll triggered for ${assetId} (Idle State)`);
