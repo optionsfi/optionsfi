@@ -119,6 +119,7 @@ export default function VaultDetailPage() {
     const formatTokenAmount = (amount: number) => (amount / Math.pow(10, decimals)).toFixed(2);
     // Calculate strike price: ~10% OTM, rounded to $2.50 increments
     const getRealisticStrike = (spot: number): number => {
+        if (!vaultMeta) return spot; // Safety fallback
         // Calculate OTM target based on vault config (e.g., 0.10 for 10%, 0.01 for 1%)
         const otmTarget = spot * (1 + vaultMeta.strikeOffset);
         // Round to nearest $2.50 increment
