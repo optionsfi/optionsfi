@@ -8,35 +8,7 @@ import { RefreshCw, Info, CheckCircle, Clock, AlertCircle, Zap, Loader2, Externa
 import { useVault } from "../../../../hooks/useVault";
 import { useRfq } from "../../../../hooks/useRfq";
 import { getVaultTheme, type VaultTheme } from "../../../../themes/vaultThemes";
-
-const PYTH_FEEDS: Record<string, string> = {
-    nvdax: "0x4244d07890e4610f46bbde67de8f43a4bf8b569eebe904f136b469f148503b7f",
-    demonvdax: "0x4244d07890e4610f46bbde67de8f43a4bf8b569eebe904f136b469f148503b7f", // Same NVDA feed
-    tslax: "0x47a156470288850a440df3a6ce85a55917b813a19bb5b31128a33a986566a362",
-    spyx: "0x2817b78438c769357182c04346fddaad1178c82f4048828fe0997c3c64624e14",
-    aaplx: "0x978e6cc68a119ce066aa830017318563a9ed04ec3a0a6439010fc11296a58675",
-    metax: "0xbf3e5871be3f80ab7a4d1f1fd039145179fb58569e159aee1ccd472868ea5900",
-};
-
-const VAULT_METADATA: Record<string, {
-    name: string;
-    symbol: string;
-    strategy: string;
-    tier: string;
-    strikeOffset: number;
-    apy: number;
-    isLive: boolean;
-    premiumRange: [number, number];
-    decimals: number;
-    logo: string;
-}> = {
-    nvdax: { name: "NVDAx Vault", symbol: "NVDAx", strategy: "Covered Call", tier: "Normal", strikeOffset: 0.10, apy: 12.4, isLive: true, premiumRange: [0.8, 1.2], decimals: 6, logo: "/nvidiax_logo.png" },
-    demonvdax: { name: "Demo NVDAx", symbol: "NVDAx", strategy: "Demo Vault", tier: "Demo", strikeOffset: 0.10, apy: 0, isLive: true, premiumRange: [0.8, 1.2], decimals: 6, logo: "/nvidiax_logo.png" },
-    aaplx: { name: "AAPLx Vault", symbol: "AAPLx", strategy: "Covered Call", tier: "Conservative", strikeOffset: 0.05, apy: 8.2, isLive: false, premiumRange: [0.4, 0.7], decimals: 6, logo: "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6849799260ee65bf38841f90_Ticker%3DAAPL%2C%20Company%20Name%3DApple%20Inc.%2C%20size%3D256x256.svg" },
-    tslax: { name: "TSLAx Vault", symbol: "TSLAx", strategy: "Covered Call", tier: "Aggressive", strikeOffset: 0.08, apy: 18.6, isLive: false, premiumRange: [1.2, 2.0], decimals: 6, logo: "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/684aaf9559b2312c162731f5_Ticker%3DTSLA%2C%20Company%20Name%3DTesla%20Inc.%2C%20size%3D256x256.svg" },
-    spyx: { name: "SPYx Vault", symbol: "SPYx", strategy: "Covered Call", tier: "Conservative", strikeOffset: 0.05, apy: 6.5, isLive: false, premiumRange: [0.3, 0.5], decimals: 6, logo: "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/685116624ae31d5ceb724895_Ticker%3DSPX%2C%20Company%20Name%3DSP500%2C%20size%3D256x256.svg" },
-    metax: { name: "METAx Vault", symbol: "METAx", strategy: "Covered Call", tier: "Normal", strikeOffset: 0.10, apy: 15.2, isLive: false, premiumRange: [1.0, 1.5], decimals: 6, logo: "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/68497dee3db1bae97b91ac05_Ticker%3DMETA%2C%20Company%20Name%3DMeta%20Platforms%20Inc.%2C%20size%3D256x256.svg" },
-};
+import { VAULT_CONFIG, getVaultConfig, getPythFeedId, computeTier } from "../../../../lib/vault-config";
 
 const HERMES_URL = "https://hermes.pyth.network";
 
@@ -81,7 +53,7 @@ function PayoffChart({ spotPrice, strikePrice, premiumRange }: { spotPrice: numb
 export default function VaultDetailPage() {
     const params = useParams();
     const ticker = params.ticker as string;
-    const vaultMeta = VAULT_METADATA[ticker];
+    const vaultMeta = getVaultConfig(ticker);
     const { connected, publicKey } = useWallet();
 
     // Get vault-specific theme colors
@@ -107,6 +79,11 @@ export default function VaultDetailPage() {
     // RFQ hook for quote fetching
     const rfq = useRfq();
 
+    // Computed values from on-chain data
+    const isLive = !!vaultData;
+    const apy = vaultData?.apy ?? 0;
+    const tier = vaultMeta ? computeTier(apy, vaultMeta.isDemo) : "Demo";
+
     const [depositAmount, setDepositAmount] = useState("");
     const [withdrawAmount, setWithdrawAmount] = useState("");
     const [activeTab, setActiveTab] = useState<"deposit" | "withdraw">("deposit");
@@ -115,7 +92,7 @@ export default function VaultDetailPage() {
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
     const fetchPrice = async () => {
-        const feedId = PYTH_FEEDS[ticker];
+        const feedId = getPythFeedId(ticker);
         if (!feedId) return;
         setPriceLoading(true);
         try {
@@ -151,7 +128,7 @@ export default function VaultDetailPage() {
     const formatPrice = (p: number | null) => p ? `$${p.toFixed(2)}` : "—";
     const depositNum = parseFloat(depositAmount) || 0;
     const withdrawNum = parseFloat(withdrawAmount) || 0;
-    const estPremiumUsd = underlyingPrice && depositNum ? (depositNum * underlyingPrice * vaultMeta.premiumRange[0] / 100) : null;
+    const estPremiumUsd = underlyingPrice && depositNum && vaultMeta ? (depositNum * underlyingPrice * vaultMeta.premiumRange[0] / 100) : null;
 
     // Handle deposit
     const handleDeposit = async () => {
@@ -277,7 +254,7 @@ export default function VaultDetailPage() {
                 <div>
                     <div className="flex items-center gap-3">
                         <h1 className="text-3xl font-bold text-white">{vaultMeta.name}</h1>
-                        {vaultMeta.isLive && (
+                        {isLive && (
                             <span
                                 className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
                                 style={{
@@ -291,13 +268,13 @@ export default function VaultDetailPage() {
                         )}
                         {vaultLoading && <Loader2 className="w-4 h-4 animate-spin text-gray-500" />}
                     </div>
-                    <p className="text-sm text-gray-400 mt-1">{vaultMeta.strategy} · {vaultMeta.tier}</p>
+                    <p className="text-sm text-gray-400 mt-1">{vaultMeta.strategy} · {tier}</p>
                 </div>
                 <div className="text-right group relative">
                     <p className="text-xs text-gray-400 flex items-center justify-end gap-1">
                         Est. APY (7 epochs) <Info className="w-3 h-3 text-gray-500" />
                     </p>
-                    <p className="text-3xl font-bold text-green-400">{(vaultData?.apy || vaultMeta.apy).toFixed(2)}%</p>
+                    <p className="text-3xl font-bold text-green-400">{(vaultData?.apy || apy).toFixed(2)}%</p>
                 </div>
             </div>
 
@@ -531,7 +508,7 @@ export default function VaultDetailPage() {
                     )}
 
                     {/* Vault State Banner - Manual Epoch Mode */}
-                    {vaultMeta.isLive && (
+                    {isLive && (
                         <div className={`flex items-center gap-2 p-3 rounded-xl text-sm ${vaultState === "ACTIVE"
                             ? "bg-green-500/10 border border-green-500/20"
                             : "bg-blue-500/10 border border-blue-500/20"
@@ -587,7 +564,7 @@ export default function VaultDetailPage() {
                     <div className="rounded-xl bg-gray-800/40 border border-gray-700/40 p-4 sticky top-4">
                         {/* Panel Header */}
                         <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm text-gray-400">{vaultMeta.strategy} ({vaultMeta.tier})</span>
+                            <span className="text-sm text-gray-400">{vaultMeta.strategy} ({tier})</span>
                             <button onClick={refresh} className="text-gray-500 hover:text-gray-300">
                                 <RefreshCw className="w-4 h-4" />
                             </button>

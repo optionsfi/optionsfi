@@ -4,24 +4,7 @@ import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Loader2, TrendingUp, Wallet, Clock, Vault } from "lucide-react";
 import { useAllVaults } from "../../hooks/useVault";
-
-// Metadata for display (price is approximate for USD TVL calculation)
-const VAULT_METADATA: Record<string, {
-    name: string;
-    strategy: string;
-    tier: string;
-    nextRoll: string;
-    apy: number;
-    utilization: number;
-    price: number; // Approximate underlying price for TVL display
-}> = {
-    nvdax: { name: "NVDAx Vault", strategy: "Covered Call", tier: "Normal", nextRoll: "Pending", apy: 12.4, utilization: 0, price: 177 },
-    demonvdax: { name: "Demo NVDAx", strategy: "Demo Vault", tier: "Demo", nextRoll: "Pending", apy: 0, utilization: 0, price: 177 },
-    aaplx: { name: "AAPLx Vault", strategy: "Covered Call", tier: "Conservative", nextRoll: "5d 8h", apy: 8.2, utilization: 42, price: 195 },
-    tslax: { name: "TSLAx Vault", strategy: "Covered Call", tier: "Aggressive", nextRoll: "1d 3h", apy: 18.6, utilization: 72, price: 250 },
-    spyx: { name: "SPYx Vault", strategy: "Covered Call", tier: "Conservative", nextRoll: "3d 6h", apy: 6.5, utilization: 35, price: 590 },
-    metax: { name: "METAx Vault", strategy: "Covered Call", tier: "Normal", nextRoll: "4d 12h", apy: 15.2, utilization: 65, price: 580 },
-};
+import { VAULT_CONFIG, computeTier } from "../../lib/vault-config";
 
 function formatCurrency(value: number): string {
     return new Intl.NumberFormat("en-US", {
@@ -39,35 +22,34 @@ export default function V2EarnDashboard() {
     const { connected } = useWallet();
     const { vaults, loading } = useAllVaults();
 
-    // Calculate tier based on APY: <8% = Conservative, 8-15% = Normal, >15% = Aggressive
-    const getTierFromApy = (apy: number, isDemo: boolean): string => {
-        if (isDemo) return "Demo";
-        if (apy < 8) return "Conservative";
-        if (apy > 15) return "Aggressive";
-        return "Normal";
-    };
-
-    const vaultList = Object.entries(VAULT_METADATA).map(([id, meta]) => {
+    const vaultList = Object.entries(VAULT_CONFIG).map(([id, meta]) => {
         const liveData = vaults[id];
-        const tvlTokens = liveData ? liveData.tvl : 0;
-        const tvlUsd = tvlTokens * meta.price; // Convert to USD
-        const actualApy = liveData?.apy ?? meta.apy;
-        const isDemo = id === "demonvdax";
+        // Get TVL from on-chain data (in tokens)
+        const tvlTokens = liveData?.tvl ?? 0;
+        // APY comes from on-chain calculation (default to 0 if not live)
+        const apy = liveData?.apy ?? 0;
+        // Is vault live on-chain?
+        const isLive = !!liveData;
+        // Compute tier dynamically from APY
+        const tier = computeTier(apy, meta.isDemo);
+
         return {
             id,
-            ...meta,
-            apy: actualApy,
-            tier: getTierFromApy(actualApy, isDemo),
-            tvl: tvlUsd,
+            name: meta.name,
+            symbol: meta.symbol,
+            strategy: meta.strategy,
+            logo: meta.logo,
+            tier,
+            apy,
             tvlTokens,
-            isLive: !!liveData,
-            utilization: liveData && Number(liveData.totalShares) > 0 ? (liveData.utilizationCapBps / 100) : meta.utilization,
+            isLive,
+            isDemo: meta.isDemo,
         };
     });
 
     const liveVaultCount = vaultList.filter(v => v.isLive).length;
-    const avgAPY = vaultList.reduce((sum, v) => sum + v.apy, 0) / vaultList.length;
-    const calculatedTotalTVL = vaultList.reduce((sum, v) => sum + v.tvl, 0); // Sum of all USD TVLs
+    const avgAPY = vaultList.length > 0 ? vaultList.reduce((sum, v) => sum + v.apy, 0) / vaultList.length : 0;
+    const calculatedTotalTVL = vaultList.reduce((sum, v) => sum + v.tvlTokens, 0);
 
     return (
         <div className="w-full space-y-4">
@@ -192,29 +174,18 @@ export default function V2EarnDashboard() {
                                 </div>
                                 <div>
                                     <p className="text-xs text-muted-foreground">TVL</p>
-                                    <p className="text-lg font-semibold text-foreground">{formatCurrency(vault.tvl)}</p>
+                                    <p className="text-lg font-semibold text-foreground">{formatCurrency(vault.tvlTokens)}</p>
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <div className="flex justify-between text-xs">
-                                    <span className="text-muted-foreground">Utilization</span>
-                                    <span className="text-foreground">{vault.utilization}%</span>
-                                </div>
-                                <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
-                                    <div
-                                        className="h-full rounded-full bg-blue-500"
-                                        style={{ width: `${vault.utilization}%` }}
-                                    />
-                                </div>
-                            </div>
+                            {/* Utilization removed - now using simpler UI */}
 
                             <div className="mt-4 pt-4 border-t border-border flex justify-between items-center">
                                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                                     <Clock className="w-3 h-3" />
                                     Next Roll
                                 </span>
-                                <span className="text-sm font-medium text-foreground">{vault.nextRoll}</span>
+                                <span className="text-sm font-medium text-foreground">{vault.isLive ? "Active" : "Pending"}</span>
                             </div>
                         </Link>
                     ))}

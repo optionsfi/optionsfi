@@ -135,7 +135,7 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
                         })}
 
                         {/* Demo Controls - only show on demo vault page */}
-                        {pathname?.includes('/demonvdax') && (
+                        {pathname?.includes('/demonvdax3') && (
                             <SidebarDemoPanel collapsed={sidebarCollapsed} />
                         )}
                     </nav>
