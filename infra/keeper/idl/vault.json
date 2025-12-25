@@ -1314,6 +1314,14 @@
             "type": "u64"
           },
           {
+            "name": "virtual_offset",
+            "docs": [
+              "Virtual offset for share calculations (prevents first-depositor attacks)",
+              "effective_shares = total_shares + virtual_offset"
+            ],
+            "type": "u64"
+          },
+          {
             "name": "epoch",
             "type": "u64"
           },

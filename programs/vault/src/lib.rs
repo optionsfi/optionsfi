@@ -116,6 +116,14 @@ pub mod vault {
             .checked_add(shares_to_mint)
             .ok_or(VaultError::Overflow)?;
 
+        // Auto-start epoch 1 on first deposit
+        // This provides better UX - vault becomes "active" immediately
+        if vault.epoch == 0 && vault.total_assets > 0 {
+            vault.epoch = 1;
+            vault.last_roll_timestamp = Clock::get()?.unix_timestamp;
+            msg!("Auto-started epoch 1 on first deposit");
+        }
+
         emit!(DepositEvent {
             vault: vault.key(),
             user: ctx.accounts.user.key(),

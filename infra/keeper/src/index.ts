@@ -31,7 +31,8 @@ import {
 const config = {
     rpcUrl: process.env.RPC_URL || "https://api.devnet.solana.com",
     walletPath: process.env.WALLET_PATH || process.env.ANCHOR_WALLET || "~/.config/solana/id.json",
-    assetId: process.env.ASSET_ID || "NVDAx",
+    // Support multiple vaults via comma-separated ASSET_IDS
+    assetIds: (process.env.ASSET_IDS || process.env.ASSET_ID || "DemoNVDAx4").split(",").map(s => s.trim()),
     ticker: process.env.TICKER || "NVDA", // Yahoo Finance ticker for volatility
     cronSchedule: process.env.CRON_SCHEDULE || "0 */6 * * *", // Every 6 hours
     epochDurationDays: parseInt(process.env.EPOCH_DURATION_DAYS || "7"),
@@ -47,7 +48,7 @@ const config = {
 const HERMES_URL = "https://hermes.pyth.network";
 const PYTH_FEED_IDS: Record<string, string> = {
     NVDAx2: "0x4244d07890e4610f46bbde67de8f43a4bf8b569eebe904f136b469f148503b7f", // NVDA/USD from Pyth
-    DemoNVDAx4: "0x4244d07890e4610f46bbde67de8f43a4bf8b569eebe904f136b469f148503b7f", // Demo with virtual offset
+    DemoNVDAx4: "0x4244d07890e4610f46bbde67de8f43a4bf8b569eebe904f136b469f148503b7f", // Demo vault
 };
 
 // ============================================================================
@@ -136,11 +137,11 @@ interface OraclePrice {
     timestamp: Date;
 }
 
-async function fetchOraclePrice(): Promise<OraclePrice | null> {
-    const feedId = PYTH_FEED_IDS[config.assetId];
+async function fetchOraclePrice(assetId: string): Promise<OraclePrice | null> {
+    const feedId = PYTH_FEED_IDS[assetId];
 
     if (!feedId) {
-        logger.warn("No Pyth feed ID for asset", { assetId: config.assetId });
+        logger.warn("No Pyth feed ID for asset", { assetId });
         return null;
     }
 
@@ -159,7 +160,7 @@ async function fetchOraclePrice(): Promise<OraclePrice | null> {
         const conf = parseFloat(priceData.conf) * Math.pow(10, priceData.expo);
 
         logger.info("Fetched price from Pyth", {
-            assetId: config.assetId,
+            assetId,
             price: price.toFixed(2),
             confidence: conf.toFixed(4)
         });
@@ -179,24 +180,14 @@ async function fetchOraclePrice(): Promise<OraclePrice | null> {
 // Epoch Roll Logic
 // ============================================================================
 
-async function runEpochRoll(): Promise<boolean> {
-    if (state.isRunning) {
-        logger.warn("Epoch roll already in progress");
-        return false;
-    }
-
-    state.isRunning = true;
-    state.runCount++;
-
-    logger.info("========================================");
-    logger.info("Starting epoch roll", { runNumber: state.runCount });
-    logger.info("========================================");
+async function runEpochRollForVault(assetId: string): Promise<boolean> {
+    logger.info("Processing vault", { assetId });
 
     try {
         // Step 1: Fetch real vault data
-        logger.info("Step 1: Fetching vault data...");
+        logger.info("Step 1: Fetching vault data...", { assetId });
         const vaultData = state.onchainClient
-            ? await state.onchainClient.fetchVault(config.assetId)
+            ? await state.onchainClient.fetchVault(assetId)
             : null;
 
         if (!vaultData) {
@@ -225,7 +216,7 @@ async function runEpochRoll(): Promise<boolean> {
 
         // Step 2: Fetch oracle price
         logger.info("Step 2: Fetching oracle price...");
-        const oraclePrice = await fetchOraclePrice();
+        const oraclePrice = await fetchOraclePrice(assetId);
         if (!oraclePrice) {
             throw new Error("Failed to fetch oracle price");
         }
@@ -292,7 +283,7 @@ async function runEpochRoll(): Promise<boolean> {
 
         try {
             const rfqResponse = await axios.post(`${config.rfqRouterUrl}/rfq`, {
-                underlying: config.assetId,
+                underlying: assetId,
                 optionType: "CALL",
                 strike: strikePrice,
                 expiry: Date.now() + config.epochDurationDays * 24 * 60 * 60 * 1000,
@@ -332,7 +323,7 @@ async function runEpochRoll(): Promise<boolean> {
             const premiumBaseUnits = BigInt(Math.floor(actualPremium * 1e6));
 
             const recordTx = await state.onchainClient.recordNotionalExposure(
-                config.assetId,
+                assetId,
                 notionalBaseUnits,
                 premiumBaseUnits
             );
@@ -369,6 +360,36 @@ async function runEpochRoll(): Promise<boolean> {
     }
 }
 
+// Wrapper function to run epoch roll for all configured vaults
+async function runEpochRoll(): Promise<boolean> {
+    if (state.isRunning) {
+        logger.warn("Epoch roll already in progress");
+        return false;
+    }
+
+    state.isRunning = true;
+    state.runCount++;
+
+    logger.info("========================================");
+    logger.info("Starting epoch roll for all vaults", {
+        vaults: config.assetIds,
+        runNumber: state.runCount
+    });
+    logger.info("========================================");
+
+    let allSuccess = true;
+    for (const assetId of config.assetIds) {
+        const success = await runEpochRollForVault(assetId);
+        if (!success) allSuccess = false;
+    }
+
+    state.isRunning = false;
+    state.lastRunTime = Date.now();
+    state.lastRunSuccess = allSuccess;
+
+    return allSuccess;
+}
+
 // ============================================================================
 // Settlement Logic
 // ============================================================================
@@ -377,8 +398,9 @@ async function runSettlement(): Promise<{ success: boolean; message: string }> {
     logger.info("Running settlement...");
 
     try {
-        // Fetch current oracle price
-        const oraclePrice = await fetchOraclePrice();
+        // Fetch current oracle price (using primary vault)
+        const primaryAsset = config.assetIds[0];
+        const oraclePrice = await fetchOraclePrice(primaryAsset);
         if (!oraclePrice) {
             throw new Error("Failed to fetch oracle price for settlement");
         }
@@ -436,8 +458,8 @@ async function runSettlement(): Promise<{ success: boolean; message: string }> {
                 premiumInTokens: (Number(premiumInTokens) / 1e6).toFixed(6),
             });
 
-            const tx = await state.onchainClient.advanceEpoch(config.assetId, premiumInTokens);
-            logger.info("Epoch advanced", { tx });
+            const tx = await state.onchainClient.advanceEpoch(primaryAsset, premiumInTokens);
+            logger.info("Epoch advanced", { tx, assetId: primaryAsset });
         }
 
         // Record settlement values for response
@@ -474,7 +496,7 @@ async function initialize(): Promise<void> {
     logger.info("OptionsFi Keeper Service Starting");
     logger.info("========================================");
     logger.info("Configuration", {
-        assetId: config.assetId,
+        assetIds: config.assetIds,
         ticker: config.ticker,
         cronSchedule: config.cronSchedule,
         epochDuration: `${config.epochDurationDays}d`,
@@ -524,7 +546,7 @@ function startHealthServer(): void {
             errorCount: state.errorCount,
             isRunning: state.isRunning,
             config: {
-                assetId: config.assetId,
+                assetIds: config.assetIds,
                 ticker: config.ticker,
                 epochDuration: config.epochDurationDays,
             },
@@ -541,16 +563,16 @@ function startHealthServer(): void {
     });
 
     app.post("/trigger", async (req: Request, res: Response) => {
-        logEvent("epoch_roll_triggered", { vault: config.assetId, manual: true });
+        logEvent("epoch_roll_triggered", { vaults: config.assetIds, manual: true });
         const success = await runEpochRoll();
-        logEvent("epoch_roll_completed", { vault: config.assetId, success });
+        logEvent("epoch_roll_completed", { vaults: config.assetIds, success });
         res.json({ success, message: success ? "Epoch roll completed" : "Epoch roll failed" });
     });
 
     app.post("/settle", async (req: Request, res: Response) => {
-        logEvent("settlement_triggered", { vault: config.assetId, manual: true });
+        logEvent("settlement_triggered", { vault: config.assetIds[0], manual: true });
         const result = await runSettlement();
-        logEvent("settlement_completed", { vault: config.assetId, success: result.success });
+        logEvent("settlement_completed", { vault: config.assetIds[0], success: result.success });
         res.json(result);
     });
 

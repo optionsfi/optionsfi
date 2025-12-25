@@ -109,10 +109,46 @@ export default function V2EarnDashboard() {
                         Your Positions
                     </h2>
                     <div className="rounded-xl border border-border bg-secondary/30 p-6">
-                        <div className="text-center text-muted-foreground py-8">
-                            <p>No active positions</p>
-                            <p className="text-sm mt-1">Deposit into a vault to start earning</p>
-                        </div>
+                        {/* Show positions from vaults where user has shares */}
+                        {(() => {
+                            const userVaults = vaultList.filter(v => {
+                                const vaultData = vaults[v.id];
+                                return vaultData && Number(vaultData.totalShares) > 0;
+                            });
+
+                            if (userVaults.length === 0) {
+                                return (
+                                    <div className="text-center text-muted-foreground py-8">
+                                        <p>No active positions</p>
+                                        <p className="text-sm mt-1">Deposit into a vault to start earning</p>
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <div className="space-y-3">
+                                    {userVaults.map(vault => (
+                                        <Link
+                                            key={vault.id}
+                                            href={`/v2/earn/${vault.id}`}
+                                            className="flex items-center justify-between p-3 rounded-lg bg-background/50 hover:bg-background/80 transition-colors"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <img src={vault.logo} alt={vault.symbol} className="w-8 h-8 rounded-full" />
+                                                <div>
+                                                    <p className="font-medium text-foreground">{vault.name}</p>
+                                                    <p className="text-xs text-muted-foreground">{vault.strategy}</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-medium text-foreground">{formatCurrency(vault.tvlTokens)}</p>
+                                                <p className="text-xs text-green-400">{formatAPY(vault.apy)} APY</p>
+                                            </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            );
+                        })()}
                     </div>
                 </section>
             )}
