@@ -32,7 +32,8 @@ export function SidebarDemoPanel({ collapsed = false }: SidebarDemoPanelProps) {
     // Fetch vault state to determine if there's active exposure
     const fetchVaultState = async () => {
         try {
-            const vaultData = await fetchVaultData(connection, "DemoNVDAx");
+            // Use DemoNVDAx5 (sync with vault-config.ts)
+            const vaultData = await fetchVaultData(connection, "DemoNVDAx5");
             if (vaultData) {
                 const hasExposure = BigInt(vaultData.epochNotionalExposed) > BigInt(0);
                 setVaultState(hasExposure ? "ACTIVE" : "IDLE");
@@ -82,6 +83,8 @@ export function SidebarDemoPanel({ collapsed = false }: SidebarDemoPanelProps) {
             setLastResult({ success: false, message: "Failed" });
         } finally {
             setIsRolling(false);
+            // Immediate refresh
+            fetchVaultState();
         }
     };
 
@@ -100,6 +103,8 @@ export function SidebarDemoPanel({ collapsed = false }: SidebarDemoPanelProps) {
             setLastResult({ success: false, message: "Failed" });
         } finally {
             setIsSettling(false);
+            // Immediate refresh
+            fetchVaultState();
         }
     };
 

@@ -210,12 +210,16 @@ export default function VaultDetailPage() {
     // Epochs run Sunday 00:00 UTC to Saturday 23:59 UTC
     const getEpochEndTime = () => {
         const now = new Date();
-        // Find next Saturday 23:59 UTC
-        const daysUntilSaturday = (6 - now.getUTCDay() + 7) % 7 || 7;
-        const nextSaturday = new Date(now);
-        nextSaturday.setUTCDate(now.getUTCDate() + daysUntilSaturday);
-        nextSaturday.setUTCHours(23, 59, 59, 999);
-        return Math.floor(nextSaturday.getTime() / 1000);
+        const utcHours = now.getUTCHours();
+        const utcMinutes = now.getUTCMinutes();
+
+        // Sync with Keeper's 6-hour roll schedule (0, 6, 12, 18 UTC)
+        const nextMark = Math.ceil((utcHours + (utcMinutes / 60)) / 6) * 6;
+
+        const nextRollDate = new Date(now);
+        nextRollDate.setUTCHours(nextMark, 0, 0, 0);
+
+        return Math.floor(nextRollDate.getTime() / 1000);
     };
 
     const [timeUntilEpochEnd, setTimeUntilEpochEnd] = useState(0);
