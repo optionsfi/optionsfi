@@ -20,24 +20,9 @@ export interface VaultMetadata {
 }
 
 export const VAULT_CONFIG: Record<string, VaultMetadata> = {
-    // Demo vault with security fixes (share_escrow, whitelist, etc.)
-    demonvdax3: {
-        name: "Demo NVDAx",
-        symbol: "NVDAx",
-        assetId: "DemoNVDAx3",
-        strategy: "Demo Vault",
-        logo: "/nvidiax_logo.png",
-        accentColor: "#76B900",
-        strikeOffset: 0.10,
-        premiumRange: [0.8, 1.2],
-        isDemo: true,
-        decimals: 6,
-        pythFeedId: "0x4244d07890e4610f46bbde67de8f43a4bf8b569eebe904f136b469f148503b7f",
-    },
-
-    // Demo vault v4 with virtual offset (first depositor protection - no token loss)
+    // Demo vault with virtual offset (first depositor protection - no token loss)
     demonvdax4: {
-        name: "Demo NVDAx v4",
+        name: "Demo NVDAx",
         symbol: "NVDAx",
         assetId: "DemoNVDAx4",
         strategy: "Demo Vault",

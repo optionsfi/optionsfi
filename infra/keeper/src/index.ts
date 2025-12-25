@@ -47,9 +47,7 @@ const config = {
 const HERMES_URL = "https://hermes.pyth.network";
 const PYTH_FEED_IDS: Record<string, string> = {
     NVDAx: "0x4244d07890e4610f46bbde67de8f43a4bf8b569eebe904f136b469f148503b7f", // NVDA/USD from Pyth
-    DemoNVDAx: "0x4244d07890e4610f46bbde67de8f43a4bf8b569eebe904f136b469f148503b7f", // Same NVDA feed for demo vault
-    DemoNVDAx3: "0x4244d07890e4610f46bbde67de8f43a4bf8b569eebe904f136b469f148503b7f",
-    DemoNVDAx4: "0x4244d07890e4610f46bbde67de8f43a4bf8b569eebe904f136b469f148503b7f", // v4 with virtual offset
+    DemoNVDAx4: "0x4244d07890e4610f46bbde67de8f43a4bf8b569eebe904f136b469f148503b7f", // Demo with virtual offset
 };
 
 // ============================================================================
