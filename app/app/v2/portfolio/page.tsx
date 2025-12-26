@@ -1069,13 +1069,20 @@ function ChartContent({ chartData, chartMin, chartMax, minTime, timeRange, netDe
                         <div key={i} className="absolute" style={{ left: `${m.x}%`, top: `${m.y}%`, transform: "translate(-50%, -50%)" }}
                             onMouseEnter={() => setHoveredEvent(i)} onMouseLeave={() => setHoveredEvent(null)}>
                             <div className={`w-2 h-2 rounded-full ${cfg.color} ring-2 ring-white/20 cursor-pointer transition-transform ${isHovered ? "scale-150" : ""}`} />
-                            {isHovered && (
-                                <div className={`absolute left-1/2 -translate-x-1/2 px-2.5 py-2 bg-gray-900/95 border border-gray-600 rounded-lg text-xs text-white whitespace-nowrap z-50 shadow-xl backdrop-blur-sm ${m.y < 30 ? 'top-full mt-3' : 'bottom-full mb-3'}`}>
-                                    <div className="font-semibold text-white">{cfg.label}</div>
-                                    <div className="text-lg font-bold mt-0.5">{chartMode === "total_return" ? `${(m.value - 100).toFixed(2)}%` : formatCurrency(m.value)}</div>
-                                    <div className="text-gray-400 text-[10px] mt-1">{m.date.toLocaleDateString()} {m.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                                </div>
-                            )}
+                            {isHovered && (() => {
+                                const isNearTop = m.y < 30;
+                                const isNearRight = m.x > 80;
+                                const isNearLeft = m.x < 20;
+                                const hAlign = isNearRight ? 'right-0' : isNearLeft ? 'left-0' : 'left-1/2 -translate-x-1/2';
+                                const vAlign = isNearTop ? 'top-full mt-3' : 'bottom-full mb-3';
+                                return (
+                                    <div className={`absolute ${hAlign} ${vAlign} px-2.5 py-2 bg-gray-900/95 border border-gray-600 rounded-lg text-xs text-white whitespace-nowrap z-50 shadow-xl backdrop-blur-sm`}>
+                                        <div className="font-semibold text-white">{cfg.label}</div>
+                                        <div className="text-lg font-bold mt-0.5">{chartMode === "total_return" ? `${(m.value - 100).toFixed(2)}%` : formatCurrency(m.value)}</div>
+                                        <div className="text-gray-400 text-[10px] mt-1">{m.date.toLocaleDateString()} {m.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     );
                 })
