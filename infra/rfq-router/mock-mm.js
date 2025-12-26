@@ -131,10 +131,16 @@ async function init() {
 function connect() {
     console.log(`\nConnecting to RFQ Router as ${MAKER_ID}...`);
 
-    const wsUrl = `${ROUTER_WS_URL}?makerId=${MAKER_ID}&apiKey=${MM_API_KEY}`;
+    // SECURITY FIX H-2: Use Authorization header (still use query for makerId since WS doesn't support headers natively)
+    // Note: ws library supports headers option for the initial HTTP upgrade request
+    const wsUrl = `${ROUTER_WS_URL}?makerId=${MAKER_ID}`;
     console.log(`WebSocket URL: ${wsUrl}`);
 
-    ws = new WebSocket(wsUrl);
+    ws = new WebSocket(wsUrl, {
+        headers: {
+            "Authorization": `Bearer ${MM_API_KEY}`
+        }
+    });
 
     ws.on("open", () => {
         console.log("✓ Connected to RFQ Router");

@@ -28,9 +28,33 @@ import {
 // Configuration
 // ============================================================================
 
+// SECURITY FIX H-1: Wallet key security
+// In production, use one of these secure methods:
+// 1. AWS KMS: Set WALLET_KMS_KEY_ID and use @aws-sdk/client-kms
+// 2. GCP Secret Manager: Set WALLET_SECRET_NAME
+// 3. HashiCorp Vault: Set VAULT_ADDR and VAULT_TOKEN
+// 4. Base58 private key in env: Set WALLET_PRIVATE_KEY (encrypted at rest)
+//
+// For local development only: Set WALLET_PATH to a keypair file
+
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const WALLET_PATH = process.env.WALLET_PATH || process.env.ANCHOR_WALLET || "~/.config/solana/id.json";
+
+// Security validation
+if (IS_PRODUCTION) {
+    if (!process.env.WALLET_PRIVATE_KEY && WALLET_PATH.includes("id.json")) {
+        console.error("══════════════════════════════════════════════════════════════");
+        console.error("⚠️  SECURITY WARNING: Using local keypair file in production!");
+        console.error("   Set WALLET_PRIVATE_KEY env or use KMS/Secret Manager");
+        console.error("══════════════════════════════════════════════════════════════");
+        // Continue but with warning - in a real production system, you might want to exit
+    }
+}
+
 const config = {
     rpcUrl: process.env.RPC_URL || "https://api.devnet.solana.com",
-    walletPath: process.env.WALLET_PATH || process.env.ANCHOR_WALLET || "~/.config/solana/id.json",
+    walletPath: WALLET_PATH,
+    walletPrivateKey: process.env.WALLET_PRIVATE_KEY, // Base58 encoded private key (optional)
     // Support multiple vaults via comma-separated ASSET_IDS
     assetIds: (process.env.ASSET_IDS || process.env.ASSET_ID || "DemoNVDAx6,NVDAx").split(",").map(s => s.trim()),
     ticker: process.env.TICKER || "NVDA", // Yahoo Finance ticker for volatility

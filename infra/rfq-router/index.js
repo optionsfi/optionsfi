@@ -57,23 +57,81 @@ function logEvent(type, data) {
 // Create HTTP server
 const server = http.createServer(app);
 
-// Market maker authentication
-// API keys for authorized market makers (in production, store in DB/env)
+// ============================================================================
+// SECURITY FIX H-2: Market Maker Authentication
+// ============================================================================
+
+// SECURITY: No default API keys in production
+const MM_API_KEYS_ENV = process.env.MM_API_KEYS;
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
+if (IS_PRODUCTION && !MM_API_KEYS_ENV) {
+    console.error("FATAL: MM_API_KEYS must be set in production mode");
+    console.error("Set NODE_ENV=development for demo mode with default keys");
+    process.exit(1);
+}
+
 const MM_API_KEYS = new Set(
-    (process.env.MM_API_KEYS || "demo-mm-key-1,demo-mm-key-2").split(",").map(k => k.trim())
+    (MM_API_KEYS_ENV || "demo-mm-key-1,demo-mm-key-2").split(",").map(k => k.trim())
 );
 
+if (!IS_PRODUCTION) {
+    console.log("⚠️  WARNING: Running with demo API keys. Set NODE_ENV=production for production.");
+}
+
+// Rate limiting per maker (max 100 quotes per minute)
+const RATE_LIMIT_WINDOW_MS = 60000;
+const RATE_LIMIT_MAX = 100;
+const rateLimitMap = new Map(); // makerId -> { count, windowStart }
+
+function checkRateLimit(makerId) {
+    const now = Date.now();
+    const record = rateLimitMap.get(makerId) || { count: 0, windowStart: now };
+
+    // Reset window if expired
+    if (now - record.windowStart > RATE_LIMIT_WINDOW_MS) {
+        record.count = 0;
+        record.windowStart = now;
+    }
+
+    record.count++;
+    rateLimitMap.set(makerId, record);
+
+    return record.count <= RATE_LIMIT_MAX;
+}
+
 function validateMakerAuth(req) {
+    // SECURITY FIX: Use Authorization header instead of URL query params
+    // Format: Authorization: Bearer <apiKey>
+    const authHeader = req.headers.authorization;
+
+    // Also support query params for backwards compatibility (deprecation warning)
     const url = new URL(req.url, `http://${req.headers.host}`);
-    const apiKey = url.searchParams.get("apiKey");
+    const queryApiKey = url.searchParams.get("apiKey");
+    const makerId = url.searchParams.get("makerId") || `maker-${Date.now()}`;
+
+    let apiKey = null;
+
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+        apiKey = authHeader.slice(7); // Remove "Bearer " prefix
+    } else if (queryApiKey) {
+        console.warn(`⚠️  Deprecation warning: API key in URL params (maker: ${makerId}). Use Authorization header.`);
+        apiKey = queryApiKey;
+    }
 
     if (!apiKey) {
-        return { valid: false, error: "Missing apiKey" };
+        return { valid: false, error: "Missing API key. Use Authorization: Bearer <key> header" };
     }
     if (!MM_API_KEYS.has(apiKey)) {
-        return { valid: false, error: "Invalid apiKey" };
+        return { valid: false, error: "Invalid API key" };
     }
-    return { valid: true, makerId: url.searchParams.get("makerId") || `maker-${Date.now()}` };
+
+    // Rate limiting
+    if (!checkRateLimit(makerId)) {
+        return { valid: false, error: "Rate limit exceeded (100 quotes/minute)" };
+    }
+
+    return { valid: true, makerId };
 }
 
 // WebSocket server attached to same HTTP server
