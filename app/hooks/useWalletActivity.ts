@@ -37,49 +37,71 @@ export function useWalletActivity() {
             setLoading(true);
             setError(null);
 
-            // Fetch recent signatures for the wallet (limited to reduce RPC load)
+            const cacheKey = `optionsfi_activity_v1_${publicKey.toString()}`;
+            let cachedData: { lastSignature: string; activities: any[] } | null = null;
+
+            try {
+                const cached = localStorage.getItem(cacheKey);
+                if (cached) {
+                    cachedData = JSON.parse(cached);
+                    // Hydrate dates
+                    if (cachedData?.activities) {
+                        cachedData.activities = cachedData.activities.map(a => ({
+                            ...a,
+                            timestamp: new Date(a.timestamp)
+                        }));
+                        // Set initial data from cache immediately for fast render
+                        if (!activities.length) {
+                            setActivities(cachedData.activities);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn("Failed to parse activity cache", e);
+            }
+
+            // Fetch recent signatures
+            // If we have a cache, fetch until the last known signature to get only new items
+            // If no cache, fetch a larger batch to populate history
+            const fetchOptions: any = { limit: cachedData ? 20 : 50 };
+            if (cachedData?.lastSignature) {
+                fetchOptions.until = cachedData.lastSignature;
+            }
+
             const signatures = await connection.getSignaturesForAddress(
                 publicKey,
-                { limit: 20 }, // Reduced from 50 to avoid rate limits
+                fetchOptions,
                 "confirmed"
             );
 
-            // Fetch transactions in small batches with delays to avoid 429s
-            const BATCH_SIZE = 3; // Reduced from 10
-            const BATCH_DELAY_MS = 200; // Delay between batches
-            const relevantActivities: WalletActivity[] = [];
+            // If no new signatures and we have cache, we are done
+            if (signatures.length === 0 && cachedData) {
+                setActivities(cachedData.activities);
+                setLoading(false);
+                return;
+            }
+
+            // Fetch transactions for new signatures
+            const BATCH_SIZE = 5;
+            const BATCH_DELAY_MS = 200;
+            const newActivities: WalletActivity[] = [];
 
             for (let i = 0; i < signatures.length; i += BATCH_SIZE) {
                 const batch = signatures.slice(i, i + BATCH_SIZE);
-
-                // Add delay between batches (not on first batch)
-                if (i > 0) {
-                    await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
-                }
+                if (i > 0) await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
 
                 const txPromises = batch.map(async (sig) => {
                     try {
-                        const tx = await connection.getParsedTransaction(
-                            sig.signature,
-                            { maxSupportedTransactionVersion: 0 }
-                        );
-
+                        const tx = await connection.getParsedTransaction(sig.signature, { maxSupportedTransactionVersion: 0 });
                         if (!tx || !tx.meta) return null;
 
                         const accountKeys = tx.transaction.message.accountKeys;
-
-                        // Parse the vault ID from account keys solely based on ACTIVE vaults
                         let vaultId: string | undefined;
                         let involvesActiveVault = false;
 
                         for (const [id, config] of Object.entries(VAULTS)) {
                             const [vaultPda] = deriveVaultPda(config.assetId);
-
-                            const isInTx = accountKeys.some(
-                                (key) => key.pubkey.toString() === vaultPda.toString()
-                            );
-
-                            if (isInTx) {
+                            if (accountKeys.some(key => key.pubkey.toString() === vaultPda.toString())) {
                                 vaultId = id;
                                 involvesActiveVault = true;
                                 break;
@@ -88,38 +110,25 @@ export function useWalletActivity() {
 
                         if (!involvesActiveVault) return null;
 
-                        // Parse the transaction type from logs
                         const logs = tx.meta.logMessages || [];
                         let type: WalletActivity["type"] = "unknown";
-                        let amount: number | undefined;
-
                         for (const log of logs) {
-                            if (log.includes("Instruction: Deposit")) {
-                                type = "deposit";
-                            } else if (log.includes("Instruction: RequestWithdrawal")) {
-                                type = "withdrawal_request";
-                            } else if (log.includes("Instruction: ProcessWithdrawal")) {
-                                type = "withdraw";
-                            }
+                            if (log.includes("Instruction: Deposit")) type = "deposit";
+                            else if (log.includes("Instruction: RequestWithdrawal")) type = "withdrawal_request";
+                            else if (log.includes("Instruction: ProcessWithdrawal")) type = "withdraw";
                         }
 
-                        // Try to extract amount from token balance changes
+                        let amount: number | undefined;
                         const preBalances = tx.meta.preTokenBalances || [];
                         const postBalances = tx.meta.postTokenBalances || [];
 
-                        for (let j = 0; j < postBalances.length; j++) {
-                            const post = postBalances[j];
-                            const pre = preBalances.find(
-                                (p) => p.accountIndex === post.accountIndex
-                            );
-
-                            if (post.owner === publicKey!.toString()) {
+                        for (const post of postBalances) {
+                            if (post.owner === publicKey.toString()) {
+                                const pre = preBalances.find(p => p.accountIndex === post.accountIndex);
                                 const postAmount = parseFloat(post.uiTokenAmount.uiAmountString || "0");
                                 const preAmount = pre ? parseFloat(pre.uiTokenAmount.uiAmountString || "0") : 0;
                                 const change = Math.abs(postAmount - preAmount);
-                                if (change > 0) {
-                                    amount = change;
-                                }
+                                if (change > 0) amount = change;
                             }
                         }
 
@@ -139,10 +148,30 @@ export function useWalletActivity() {
                 });
 
                 const results = await Promise.all(txPromises);
-                results.forEach(r => { if (r) relevantActivities.push(r); });
+                results.forEach(r => { if (r) newActivities.push(r); });
             }
 
-            setActivities(relevantActivities);
+            // Merge new activities with cached ones
+            // Filter duplicates just in case
+            const existingSigs = new Set(cachedData?.activities.map(a => a.signature) || []);
+            const uniqueNewActivities = newActivities.filter(a => !existingSigs.has(a.signature));
+
+            const allActivities = [
+                ...uniqueNewActivities,
+                ...(cachedData?.activities || [])
+            ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+            setActivities(allActivities);
+
+            // Update cache
+            if (allActivities.length > 0) {
+                const latestSig = allActivities[0].signature;
+                localStorage.setItem(cacheKey, JSON.stringify({
+                    lastSignature: latestSig,
+                    activities: allActivities
+                }));
+            }
+
         } catch (err: any) {
             console.error("Error fetching wallet activity:", err);
             setError(err.message || "Failed to fetch activity");
@@ -150,6 +179,10 @@ export function useWalletActivity() {
             setLoading(false);
         }
     }, [connection, publicKey]);
+
+    // Force refresh helper that clears cache (optional, or just re-fetches top)
+    // Actually standard refresh should just fetch top. 
+    // If we want hard reset: localStorage.removeItem(cacheKey)
 
     useEffect(() => {
         fetchActivity();
