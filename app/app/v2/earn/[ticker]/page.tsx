@@ -6,6 +6,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { RefreshCw, Info, CheckCircle, Clock, AlertCircle, Zap, Loader2, ExternalLink, Wallet, Radio, Play, Square, ArrowRight, Shield, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { useVault } from "../../../../hooks/useVault";
+import { useVaultTiming } from "../../../../hooks/useVaultTiming";
 import { useRfq } from "../../../../hooks/useRfq";
 import { getVaultTheme, type VaultTheme } from "../../../../themes/vaultThemes";
 import { VAULT_CONFIG, getVaultConfig, getPythFeedId, computeTier } from "../../../../lib/vault-config";
@@ -208,72 +209,14 @@ export default function VaultDetailPage() {
     const utilization = tvlTokens > 0 ? (exposureTokens / tvlTokens) * 100 : 0;
     const utilizationCap = vaultData?.utilizationCapBps ? vaultData.utilizationCapBps / 100 : 80;
 
-    // Epoch timing - calculate based on on-chain data or fallback
-    const getEpochEndTime = useCallback(() => {
-        if (vaultData) {
-            // Use on-chain timestamps if available
-            const lastRoll = vaultData.lastRollTimestamp;
+    // Use centralized timing hook
+    const timing = useVaultTiming(vaultData, ticker);
+    const { nextRollIn: timeString, epochProgress } = timing;
+    const timeUntilEpochEnd = Math.max(0, Math.floor((timing.nextRollTime - Date.now()) / 1000));
 
-            // Match keeper fallback logic: if minEpochDuration is 0, use defaults
-            let minDuration = vaultData.minEpochDuration;
-            if (minDuration === 0) {
-                minDuration = vaultMeta.isDemo ? 180 : 604800; // 3 min for demo, 7 days for prod
-            }
-
-            // If we have a last roll, calculate end time
-            if (lastRoll > 0) {
-                return lastRoll + minDuration;
-            }
-        }
-
-        // Fallback: use 3-minute marks for demo, 6-hour marks for production
-        if (vaultMeta?.isDemo) {
-            const now = Math.floor(Date.now() / 1000);
-            return now + (180 - (now % 180)); // Next 3-minute mark
-        }
-
-        // Only fallback to schedule if we have no on-chain data
-        const now = new Date();
-        const utcHours = now.getUTCHours();
-        const utcMinutes = now.getUTCMinutes();
-
-        // Fallback to schedule (0, 6, 12, 18 UTC)
-        const nextMark = Math.ceil((utcHours + (utcMinutes / 60)) / 6) * 6;
-
-        const nextRollDate = new Date(now);
-        nextRollDate.setUTCHours(nextMark, 0, 0, 0);
-
-        return Math.floor(nextRollDate.getTime() / 1000);
-    }, [vaultData, vaultMeta, vaultMeta?.isDemo]);
-
-    const [timeUntilEpochEnd, setTimeUntilEpochEnd] = useState(0);
-
-    useEffect(() => {
-        const updateTime = () => {
-            const epochEnd = getEpochEndTime();
-            const remaining = Math.max(0, epochEnd - Math.floor(Date.now() / 1000));
-            setTimeUntilEpochEnd(remaining);
-        };
-        updateTime();
-        const interval = setInterval(updateTime, 1000); // Update every second for accuracy
-        return () => clearInterval(interval);
-    }, [getEpochEndTime]);
-
-    const minutesUntilEnd = Math.floor(timeUntilEpochEnd / 60);
-    const secondsUntilEnd = timeUntilEpochEnd % 60;
-    const hoursUntilEnd = Math.floor(minutesUntilEnd / 60);
-    const remainingMinutes = minutesUntilEnd % 60;
-    const daysUntilEnd = Math.floor(hoursUntilEnd / 24);
-    const remainingHours = hoursUntilEnd % 24;
 
     // For demo vaults or short intervals, show minutes:seconds
-    const timeString = vaultMeta.isDemo || timeUntilEpochEnd < 600
-        ? `${minutesUntilEnd}:${secondsUntilEnd.toString().padStart(2, '0')}`
-        : daysUntilEnd > 0
-            ? `${daysUntilEnd}d ${remainingHours}h`
-            : hoursUntilEnd > 0
-                ? `${hoursUntilEnd}h ${remainingMinutes}m`
-                : `${remainingMinutes}m`;
+
 
     // Themed background gradient
     const backgroundStyle = {

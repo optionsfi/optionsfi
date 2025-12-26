@@ -196,7 +196,7 @@ export default function V2EarnDashboard() {
                 <div className="absolute -top-20 -right-20 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl" />
             </section>
 
-            {/* Your Positions (if connected) */}
+            {/* Your Positions */}
             {connected && (
                 <section className="space-y-4">
                     <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
@@ -223,7 +223,7 @@ export default function V2EarnDashboard() {
                                         <Link
                                             key={vault.id}
                                             href={`/v2/earn/${vault.id}`}
-                                            className="flex items-center justify-between p-3 rounded-lg bg-background/50 hover:bg-background/80 transition-colors"
+                                            className="flex items-center justify-between p-3 rounded-lg hover:bg-background/20 transition-colors"
                                         >
                                             <div className="flex items-center gap-3">
                                                 <img src={vault.logo} alt={vault.symbol} className="w-8 h-8 rounded-full" />

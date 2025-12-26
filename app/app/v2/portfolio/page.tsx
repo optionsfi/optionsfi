@@ -47,30 +47,11 @@ interface Position {
 
 
 // Helper to calculate epoch timing for a specific vault
+import { calculateVaultTiming } from "../../../lib/vault-timing";
+
+// Legacy function removed, using shared utility
 function calculateEpochTiming(vault: any, assetId: string) {
-    if (!vault) return { epochEndTimestamp: 0, epochProgress: 0 };
-
-    const lastRoll = Number(vault.lastRollTimestamp || 0) * 1000;
-    // Fallback: 3 min for demo, 7 days for prod if 0 on-chain
-    let minDuration = Number(vault.minEpochDuration || 0) * 1000;
-    if (minDuration === 0) {
-        minDuration = assetId.toLowerCase().includes("demo") ? 180 * 1000 : 604800 * 1000;
-    }
-
-    // If lastRoll is 0 (fresh vault, never rolled), assume next roll is minDuration from now?
-    // Or better, assume it's uninitialized and waiting.
-    // For demo purposes, we fallback to relative time if 0, but usually it's > 0 if active.
-    const epochEnd = lastRoll > 0 ? lastRoll + minDuration : Date.now() + minDuration;
-
-    // Progress
-    const now = Date.now();
-    const elapsed = now - lastRoll;
-    const progress = Math.min(100, Math.max(0, (elapsed / minDuration) * 100));
-
-    return {
-        epochEndTimestamp: epochEnd,
-        epochProgress: Math.floor(progress)
-    };
+    return calculateVaultTiming(vault, assetId);
 }
 
 
@@ -471,9 +452,7 @@ export default function PortfolioPage() {
                         unrealizedPnl,
                         unrealizedPnlPercent,
                         accruedPremium,
-                        unrealizedPnlPercent,
-                        accruedPremium,
-                        epochEndTimestamp: timing.epochEndTimestamp,
+                        epochEndTimestamp: timing.nextRollTime,
                         epochProgress: timing.epochProgress,
                         vaultApy,
                     });
