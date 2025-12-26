@@ -18,12 +18,14 @@ const bs58 = require("bs58");
 
 const ROUTER_WS_URL = process.env.ROUTER_WS_URL || "ws://localhost:3006";
 const MAKER_ID = process.env.MAKER_ID || "mock-mm-usdc";
+const MAKER_DISPLAY_NAME = process.env.MAKER_DISPLAY_NAME || MAKER_ID;
 const MM_API_KEY = process.env.MM_API_KEY || "demo-mm-key-1"; // Must match RFQ router's MM_API_KEYS
 const RPC_URL = process.env.RPC_URL || "https://api.devnet.solana.com";
 
 // Competitive pricing configuration
 const PREMIUM_MULTIPLIER = parseFloat(process.env.PREMIUM_MULTIPLIER || "1.0");
 const RESPONSE_DELAY = parseInt(process.env.RESPONSE_DELAY || "500");
+const QUOTE_CHANCE = parseFloat(process.env.QUOTE_CHANCE || "1.0"); // 0.0 - 1.0, probability of quoting
 
 // USDC Mint on devnet (Mock USDC)
 const USDC_MINT = new PublicKey("5z8s3k7mkmH1DKFPvjkVd8PxapEeYaPJjqQTJeUEN1i4");
@@ -183,6 +185,12 @@ function scheduleReconnect() {
 
 function handleMessage(msg) {
     if (msg.type === "rfq") {
+        // Random quote chance - not all MMs quote every RFQ
+        if (Math.random() > QUOTE_CHANCE) {
+            console.log(`\n⏭️  Skipping RFQ ${msg.rfqId} (quote chance: ${(QUOTE_CHANCE * 100).toFixed(0)}%)`);
+            return;
+        }
+
         console.log(`\n📨 Received RFQ: ${msg.rfqId}`, {
             underlying: msg.underlying,
             strike: msg.strike,
