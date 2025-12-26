@@ -611,6 +611,23 @@ pub mod vault {
         Ok(())
     }
 
+    /// SECURITY FIX M-4: Remove a market maker from the whitelist
+    pub fn remove_market_maker(ctx: Context<RemoveMarketMaker>, market_maker: Pubkey) -> Result<()> {
+        let whitelist = &mut ctx.accounts.whitelist;
+        
+        let position = whitelist.market_makers.iter().position(|&mm| mm == market_maker);
+        require!(position.is_some(), VaultError::NotWhitelisted);
+        
+        whitelist.market_makers.remove(position.unwrap());
+        
+        emit!(MarketMakerRemovedEvent {
+            vault: ctx.accounts.vault.key(),
+            market_maker,
+        });
+        
+        Ok(())
+    }
+
     /// SECURITY: Pause or unpause the vault (emergency control)
     /// When paused, deposits and withdrawal requests are blocked
     pub fn set_pause(ctx: Context<SetPause>, paused: bool) -> Result<()> {
@@ -732,7 +749,7 @@ pub mod vault {
 
     /// Force close a vault account (bypasses deserialization)
     /// USE WITH CAUTION: Only for recovering from incompatible account structures
-    /// This does NOT check if the vault is empty - authority takes full responsibility
+    /// SECURITY FIX C-2: Now verifies caller is the stored vault authority
     pub fn force_close_vault(ctx: Context<ForceCloseVault>, asset_id: String) -> Result<()> {
         let vault_account = &ctx.accounts.vault;
         let authority = &ctx.accounts.authority;
@@ -743,6 +760,19 @@ pub mod vault {
             ctx.program_id,
         );
         require!(vault_account.key() == expected_pda, VaultError::InvalidVaultPda);
+
+        // SECURITY FIX C-2: Verify caller is the vault authority
+        // Authority is stored at bytes 8-40 (after 8-byte discriminator)
+        let vault_data = vault_account.try_borrow_data()?;
+        require!(vault_data.len() >= 40, VaultError::InvalidVaultPda);
+        
+        let stored_authority = Pubkey::try_from(&vault_data[8..40])
+            .map_err(|_| VaultError::InvalidVaultPda)?;
+        require!(
+            stored_authority == authority.key(),
+            VaultError::UnauthorizedForceClose
+        );
+        drop(vault_data); // Release borrow before modifying
 
         // Transfer all lamports to authority
         let vault_lamports = vault_account.lamports();
@@ -1165,6 +1195,29 @@ pub struct AddMarketMaker<'info> {
     pub authority: Signer<'info>,
 }
 
+/// SECURITY FIX M-4: Context for removing market makers
+#[derive(Accounts)]
+pub struct RemoveMarketMaker<'info> {
+    #[account(
+        seeds = [b"vault", vault.asset_id.as_bytes()],
+        bump = vault.bump,
+        has_one = authority
+    )]
+    pub vault: Account<'info, Vault>,
+
+    #[account(
+        mut,
+        seeds = [b"whitelist", vault.key().as_ref()],
+        bump = whitelist.bump,
+        has_one = vault,
+        has_one = authority
+    )]
+    pub whitelist: Account<'info, VaultWhitelist>,
+
+    #[account(mut)]
+    pub authority: Signer<'info>,
+}
+
 #[derive(Accounts)]
 pub struct SetPause<'info> {
     #[account(
@@ -1341,6 +1394,13 @@ pub struct ParamChangeExecutedEvent {
     pub new_utilization_cap_bps: u16,
 }
 
+/// SECURITY FIX M-4: Event emitted when a market maker is removed
+#[event]
+pub struct MarketMakerRemovedEvent {
+    pub vault: Pubkey,
+    pub market_maker: Pubkey,
+}
+
 // ============================================================================
 // Errors
 // ============================================================================
@@ -1395,4 +1455,6 @@ pub enum VaultError {
     UseTimelockForParamChange,
     #[msg("Invalid parameter value")]
     InvalidParameter,
+    #[msg("Caller is not the vault authority")]
+    UnauthorizedForceClose,
 }

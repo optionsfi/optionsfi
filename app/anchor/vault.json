@@ -540,7 +540,7 @@
       "docs": [
         "Force close a vault account (bypasses deserialization)",
         "USE WITH CAUTION: Only for recovering from incompatible account structures",
-        "This does NOT check if the vault is empty - authority takes full responsibility"
+        "SECURITY FIX C-2: Now verifies caller is the stored vault authority"
       ],
       "discriminator": [
         229,
@@ -1179,6 +1179,90 @@
       ]
     },
     {
+      "name": "remove_market_maker",
+      "docs": [
+        "SECURITY FIX M-4: Remove a market maker from the whitelist"
+      ],
+      "discriminator": [
+        101,
+        241,
+        39,
+        132,
+        210,
+        208,
+        183,
+        254
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.asset_id",
+                "account": "Vault"
+              }
+            ]
+          },
+          "relations": [
+            "whitelist"
+          ]
+        },
+        {
+          "name": "whitelist",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  104,
+                  105,
+                  116,
+                  101,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "vault",
+            "whitelist"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "market_maker",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
       "name": "request_withdrawal",
       "docs": [
         "Request withdrawal (queued until epoch end)"
@@ -1517,6 +1601,19 @@
       ]
     },
     {
+      "name": "MarketMakerRemovedEvent",
+      "discriminator": [
+        238,
+        48,
+        105,
+        84,
+        228,
+        245,
+        204,
+        75
+      ]
+    },
+    {
       "name": "NotionalExposureEvent",
       "discriminator": [
         220,
@@ -1741,6 +1838,11 @@
       "code": 6023,
       "name": "InvalidParameter",
       "msg": "Invalid parameter value"
+    },
+    {
+      "code": 6024,
+      "name": "UnauthorizedForceClose",
+      "msg": "Caller is not the vault authority"
     }
   ],
   "types": [
@@ -1808,6 +1910,25 @@
           {
             "name": "premium_balance_usdc",
             "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarketMakerRemovedEvent",
+      "docs": [
+        "SECURITY FIX M-4: Event emitted when a market maker is removed"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "market_maker",
+            "type": "pubkey"
           }
         ]
       }
