@@ -733,17 +733,17 @@ export default function PortfolioPage() {
                     <div className="lg:col-span-2">
                         <div className="bg-gray-800/40 rounded-xl border border-gray-700/40 overflow-hidden" style={{ minHeight: "340px" }}>
                             {/* Chart Header */}
-                            <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-700/40">
-                                <div className="flex items-center gap-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between px-3 sm:px-4 py-2.5 border-b border-gray-700/40 gap-2">
+                                <div className="flex items-center gap-2 sm:gap-4 overflow-x-auto">
                                     <ChartModeSelector mode={chartMode} setMode={setChartMode} />
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="text-2xl font-bold text-white">{displayValue}</span>
-                                        <span className={`text-sm ${stats.totalUnrealizedPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                                    <div className="flex items-baseline gap-1 sm:gap-2">
+                                        <span className="text-xl sm:text-2xl font-bold text-white whitespace-nowrap">{displayValue}</span>
+                                        <span className={`text-xs sm:text-sm whitespace-nowrap ${stats.totalUnrealizedPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
                                             {formatCurrency(stats.totalUnrealizedPnl)} P&L
                                         </span>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1 sm:gap-2">
                                     {(["1D", "1W", "1M", "ALL"] as const).map(r => (
                                         <button key={r} onClick={() => setChartRange(r)} className={`px-2 py-0.5 rounded text-xs font-medium ${chartRange === r ? "bg-gray-700 text-white" : "text-gray-500 hover:text-gray-300"}`}>{r}</button>
                                     ))}

@@ -560,7 +560,7 @@ export default function VaultDetailPage() {
                                     </div>
                                     {estPremiumUsd && estPremiumUsd > 0 && (
                                         <div className="flex justify-between px-4 py-3">
-                                            <span className="text-sm text-gray-400">Est. premium</span>
+                                            <span className="text-sm text-gray-400">Est. Weekly Premium</span>
                                             <span className="text-green-400 font-semibold">~${estPremiumUsd.toFixed(2)}</span>
                                         </div>
                                     )}

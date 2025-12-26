@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import dynamic from 'next/dynamic';
 import { useState, useEffect } from 'react';
-import { Coins, PieChart, Activity, BookOpen, Settings, Droplets, Logs } from "lucide-react";
+import { Coins, PieChart, Activity, BookOpen, Settings, Droplets, Logs, Menu, X } from "lucide-react";
 
 const WalletMultiButton = dynamic(
     () => import('@solana/wallet-adapter-react-ui').then((mod) => mod.WalletMultiButton),
@@ -14,6 +14,7 @@ const WalletMultiButton = dynamic(
 export default function V2Layout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     useEffect(() => {
         const savedSidebar = localStorage.getItem("sidebarCollapsed");
@@ -21,6 +22,11 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
             setSidebarCollapsed(savedSidebar === "true");
         }
     }, []);
+
+    // Close mobile menu on route change
+    useEffect(() => {
+        setMobileMenuOpen(false);
+    }, [pathname]);
 
     const toggleSidebar = () => {
         const newState = !sidebarCollapsed;
@@ -52,17 +58,25 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
         <div className="h-screen flex flex-col bg-background overflow-hidden">
             {/* Top Header - Clean, minimal */}
             <header className="flex-shrink-0 border-b border-border bg-background/80 backdrop-blur-md z-50">
-                <div className="h-14 flex justify-between items-center px-6">
-                    <div className="flex items-center gap-6">
-                        <Link href="/v2" className="flex items-center gap-3">
-                            <img src="/OptionsFi_logo.png" alt="OptionsFi" className="h-8 w-auto" />
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                <div className="h-14 flex justify-between items-center px-4 md:px-6">
+                    <div className="flex items-center gap-3 md:gap-6">
+                        {/* Mobile Menu Toggle */}
+                        <button
+                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            className="md:hidden p-2 -ml-2 text-muted-foreground hover:text-foreground"
+                        >
+                            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                        </button>
+
+                        <Link href="/v2" className="flex items-center gap-2 md:gap-3">
+                            <img src="/OptionsFi_logo.png" alt="OptionsFi" className="h-7 md:h-8 w-auto" />
+                            <span className="hidden sm:inline text-xs font-semibold px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">
                                 V2 Beta
                             </span>
                         </Link>
 
-                        {/* V1/V2 Toggle */}
-                        <div className="flex items-center bg-secondary/50 rounded-lg p-0.5 border border-border">
+                        {/* V1/V2 Toggle - hidden on mobile */}
+                        <div className="hidden md:flex items-center bg-secondary/50 rounded-lg p-0.5 border border-border">
                             <Link
                                 href="/"
                                 className="px-3 py-1.5 text-xs font-medium rounded-md text-muted-foreground hover:text-foreground transition-colors"
@@ -75,31 +89,63 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                        {/* Oracle Health Badge
-                        <Link
-                            href="/v2/oracle"
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/30 hover:bg-green-500/15 transition-colors"
-                        >
-                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                            <span className="text-xs font-medium text-green-400">Oracle</span>
-                        </Link> */}
-
-                        {/* Network Badge */}
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-secondary/50 border border-border">
+                    <div className="flex items-center gap-2 md:gap-3">
+                        {/* Network Badge - smaller on mobile */}
+                        <div className="flex items-center gap-1.5 px-2 py-1 md:px-2.5 md:py-1.5 rounded-lg bg-secondary/50 border border-border">
                             <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
-                            <span className="text-xs font-medium text-muted-foreground">Devnet</span>
+                            <span className="text-[10px] md:text-xs font-medium text-muted-foreground">Devnet</span>
                         </div>
 
                         {/* Wallet */}
-                        <WalletMultiButton className="!bg-secondary !text-secondary-foreground hover:!bg-secondary/80 !rounded-lg !h-9 !px-4 !text-sm !font-medium !border !border-border" />
+                        <WalletMultiButton className="!bg-secondary !text-secondary-foreground hover:!bg-secondary/80 !rounded-lg !h-8 md:!h-9 !px-3 md:!px-4 !text-xs md:!text-sm !font-medium !border !border-border" />
                     </div>
                 </div>
             </header>
 
             <div className="flex flex-1 min-h-0">
-                {/* Left Sidebar - fills remaining height */}
-                <aside className={`${sidebarCollapsed ? 'w-16' : 'w-52'} flex-shrink-0 border-r border-border bg-background/50 transition-all duration-200 flex flex-col`}>
+                {/* Mobile Menu Overlay */}
+                {mobileMenuOpen && (
+                    <div className="md:hidden fixed inset-0 top-14 bg-background/95 backdrop-blur-sm z-40 overflow-y-auto">
+                        <nav className="p-4 space-y-2">
+                            {coreNavItems.map((item) => {
+                                const Icon = item.icon;
+                                return (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        className={`flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-all ${isActive(item.href)
+                                            ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                                            : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                                            }`}
+                                    >
+                                        <Icon className="w-5 h-5" />
+                                        <span>{item.label}</span>
+                                    </Link>
+                                );
+                            })}
+                            <div className="border-t border-border my-4" />
+                            {utilityNavItems.map((item) => {
+                                const Icon = item.icon;
+                                return (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${isActive(item.href)
+                                            ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                                            : "text-muted-foreground/70 hover:text-foreground hover:bg-secondary/50"
+                                            }`}
+                                    >
+                                        <Icon className="w-4 h-4" />
+                                        <span>{item.label}</span>
+                                    </Link>
+                                );
+                            })}
+                        </nav>
+                    </div>
+                )}
+
+                {/* Left Sidebar - hidden on mobile */}
+                <aside className={`hidden md:flex ${sidebarCollapsed ? 'w-16' : 'w-52'} flex-shrink-0 border-r border-border bg-background/50 transition-all duration-200 flex-col`}>
                     {/* Sidebar Header Row */}
                     <div className={`h-11 flex-shrink-0 flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-end'} px-3 border-b border-border/50`}>
                         <button
@@ -132,8 +178,6 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
                                 </Link>
                             );
                         })}
-
-                        {/* Show Zap (Demo Panel) for demo vaults - Removed as it's now automated */}
                     </nav>
 
                     {/* Divider */}
@@ -162,10 +206,39 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
                 </aside>
 
                 {/* Main Content */}
-                <main className="flex-1 p-4 overflow-auto">
+                <main className="flex-1 p-3 md:p-4 overflow-auto pb-20 md:pb-4">
                     {children}
                 </main>
             </div>
+
+            {/* Mobile Bottom Navigation */}
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-md border-t border-border z-40 safe-area-bottom">
+                <div className="flex justify-around items-center h-16">
+                    {coreNavItems.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className={`flex flex-col items-center justify-center flex-1 h-full gap-1 ${isActive(item.href)
+                                    ? "text-blue-400"
+                                    : "text-muted-foreground"
+                                    }`}
+                            >
+                                <Icon className="w-5 h-5" />
+                                <span className="text-[10px] font-medium">{item.label}</span>
+                            </Link>
+                        );
+                    })}
+                    <button
+                        onClick={() => setMobileMenuOpen(true)}
+                        className="flex flex-col items-center justify-center flex-1 h-full gap-1 text-muted-foreground"
+                    >
+                        <Menu className="w-5 h-5" />
+                        <span className="text-[10px] font-medium">More</span>
+                    </button>
+                </div>
+            </nav>
         </div>
     );
 }
