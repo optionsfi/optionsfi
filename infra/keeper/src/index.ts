@@ -256,10 +256,31 @@ async function runEpochRollForVault(assetId: string, preFetchedPrice?: OraclePri
         }
 
         const totalAssets = Number(vaultData.totalAssets) / 1e6; // Assuming 6 decimals
+        const totalShares = Number(vaultData.totalShares) / 1e6;
+        const pendingWithdrawalShares = Number(vaultData.pendingWithdrawals) / 1e6;
+
+        // Calculate assets locked for withdrawal
+        // lockedAssets = (pendingShares / totalShares) * totalAssets
+        let lockedAssets = 0;
+        if (totalShares > 0 && pendingWithdrawalShares > 0) {
+            lockedAssets = (pendingWithdrawalShares / totalShares) * totalAssets;
+        }
+
+        const usableAssets = Math.max(0, totalAssets - lockedAssets);
+
         const currentExposure = Number(vaultData.epochNotionalExposed) / 1e6;
         const utilizationCap = vaultData.utilizationCapBps / 10000;
-        const maxExposure = totalAssets * utilizationCap;
-        const availableExposure = maxExposure - currentExposure;
+
+        // Calculate max exposure based on usable assets only
+        const maxExposure = usableAssets * utilizationCap;
+        const availableExposure = Math.max(0, maxExposure - currentExposure);
+
+        logger.info("Asset utilization", {
+            totalAssets: totalAssets.toFixed(2),
+            lockedAssets: lockedAssets.toFixed(2),
+            usableAssets: usableAssets.toFixed(2),
+            pendingShares: pendingWithdrawalShares.toFixed(2)
+        });
 
         logger.info("Vault state", {
             totalAssets,
