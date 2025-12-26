@@ -353,7 +353,7 @@ export default function VaultDetailPage() {
                                 </span>
                             </p>
                             <p className="text-2xl font-bold text-white">${tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                            <div className="flex items-center justify-between mt-0.5">
+                            <div className="flex items-center justify-between mt-0.5 gap-2">
                                 <p className="text-xs text-blue-400">{tvlTokens.toFixed(2)} {vaultMeta.symbol}</p>
                                 <p className="text-xs text-gray-500">{utilization.toFixed(0)}% utilized</p>
                             </div>
@@ -399,7 +399,13 @@ export default function VaultDetailPage() {
                                 </span>
                             </p>
                             <p className="text-2xl font-bold text-green-400">
-                                {vaultData?.sharePrice ? `+ ${((vaultData.sharePrice - 1.0) * 100).toFixed(2)}% ` : "0.00%"}
+                                {vaultData?.sharePrice
+                                    ? (() => {
+                                        const pct = (vaultData.sharePrice - 1.0) * 100;
+                                        if (Math.abs(pct) < 0.005) return "0.00%";
+                                        return pct >= 0 ? `+${pct.toFixed(2)}%` : `${pct.toFixed(2)}%`;
+                                    })()
+                                    : "0.00%"}
                             </p>
                             <p className="text-xs text-gray-500 mt-0.5">since inception</p>
                         </div>
