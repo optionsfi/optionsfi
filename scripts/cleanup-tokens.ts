@@ -16,16 +16,19 @@ const RPC_URL = process.env.RPC_URL || "https://api.devnet.solana.com";
 // Mints that are ACTIVELY USED by the app
 const ACTIVE_MINTS = new Set([
     "G5VWnnWRxVvuTqRCEQNNGEdRmS42hMTyh8DAN9MHecLn",  // NVDAx (underlying)
-    "5z8s3k7mkmH1DKFPvjkVd8PxapEeYaPJjqQTJeUEN1i4",  // USDC (premium)
-    "4yLeF5RVrpBST6Y3VDz7XQT3bGFACXtzMkANRpeFJduw",  // DemoNVDAx share mint
+    "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",  // USDC (Standard Devnet)
+    "5z8s3k7mkmH1DKFPvjkVd8PxapEeYaPJjqQTJeUEN1i4",  // USDC (Mock Faucet)
+    "Gior2m7SyuaCvykc3nyQ5J4j2dextF7uErq2gbTMwC5S",  // vNVDAx (Shares)
+    "4b38M6JA1fbb99bwg4Y5bV6NEYbjLpihCYvDQe1w7rF9",  // vDemoNVDAx (Shares)
 ]);
 
 // Known mint names for display
 const MINT_NAMES: Record<string, string> = {
-    "G5VWnnWRxVvuTqRCEQNNGEdRmS42hMTyh8DAN9MHecLn": "NVDAx (underlying)",
-    "5z8s3k7mkmH1DKFPvjkVd8PxapEeYaPJjqQTJeUEN1i4": "USDC (premium)",
-    "4yLeF5RVrpBST6Y3VDz7XQT3bGFACXtzMkANRpeFJduw": "vDemoNVDAx (shares)",
-    "BoAgayd7WrWsLxWz9HDJx9oYf33XfaXoHseMMezz7mHU": "OLD vDemoNVDAx5 (shares) - ORPHANED",
+    "G5VWnnWRxVvuTqRCEQNNGEdRmS42hMTyh8DAN9MHecLn": "NVDAx (Underlying)",
+    "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU": "USDC (Devnet)",
+    "5z8s3k7mkmH1DKFPvjkVd8PxapEeYaPJjqQTJeUEN1i4": "USDC (Faucet)",
+    "Gior2m7SyuaCvykc3nyQ5J4j2dextF7uErq2gbTMwC5S": "vNVDAx (Shares)",
+    "4b38M6JA1fbb99bwg4Y5bV6NEYbjLpihCYvDQe1w7rF9": "vDemoNVDAx (Shares)",
 };
 
 async function main() {
