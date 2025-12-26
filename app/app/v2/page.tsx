@@ -203,45 +203,43 @@ export default function V2EarnDashboard() {
                         <Wallet className="w-5 h-5" />
                         Your Positions
                     </h2>
-                    <div className="rounded-xl border border-border bg-secondary/30 p-6">
-                        {/* Show positions from vaults where user has shares */}
-                        {(() => {
-                            const userVaults = vaultList.filter(v => v.userShares > 0);
+                    {/* Show positions from vaults where user has shares */}
+                    {(() => {
+                        const userVaults = vaultList.filter(v => v.userShares > 0);
 
-                            if (userVaults.length === 0) {
-                                return (
-                                    <div className="text-center text-muted-foreground py-8">
-                                        <p>No active positions</p>
-                                        <p className="text-sm mt-1">Deposit into a vault to start earning</p>
-                                    </div>
-                                );
-                            }
-
+                        if (userVaults.length === 0) {
                             return (
-                                <div className="space-y-3">
-                                    {userVaults.map(vault => (
-                                        <Link
-                                            key={vault.id}
-                                            href={`/v2/earn/${vault.id}`}
-                                            className="flex items-center justify-between p-3 rounded-lg hover:bg-background/20 transition-colors"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <img src={vault.logo} alt={vault.symbol} className="w-8 h-8 rounded-full" />
-                                                <div>
-                                                    <p className="font-medium text-foreground">{vault.name}</p>
-                                                    <p className="text-xs text-muted-foreground">{vault.strategy}</p>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="font-medium text-foreground">{formatCurrency(vault.userValueUsd)}</p>
-                                                <p className="text-xs text-green-400">{formatAPY(vault.apy)} APY</p>
-                                            </div>
-                                        </Link>
-                                    ))}
+                                <div className="rounded-xl border border-border bg-secondary/30 p-8 text-center text-muted-foreground">
+                                    <p>No active positions</p>
+                                    <p className="text-sm mt-1">Deposit into a vault to start earning</p>
                                 </div>
                             );
-                        })()}
-                    </div>
+                        }
+
+                        return (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {userVaults.map(vault => (
+                                    <Link
+                                        key={vault.id}
+                                        href={`/v2/earn/${vault.id}`}
+                                        className="flex items-center justify-between p-4 rounded-xl border border-border bg-secondary/30 hover:bg-secondary/50 hover:border-blue-500/30 transition-all"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <img src={vault.logo} alt={vault.symbol} className="w-10 h-10 rounded-full" />
+                                            <div>
+                                                <p className="font-medium text-foreground">{vault.name}</p>
+                                                <p className="text-xs text-muted-foreground">{vault.strategy}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-medium text-foreground">{formatCurrency(vault.userValueUsd)}</p>
+                                            <p className="text-xs text-green-400">{formatAPY(vault.apy)} APY</p>
+                                        </div>
+                                    </Link>
+                                ))}
+                            </div>
+                        );
+                    })()}
                 </section>
             )}
 
