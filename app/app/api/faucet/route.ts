@@ -69,14 +69,10 @@ export async function POST(request: NextRequest) {
         }
 
         // Connect to devnet
+        // Connect to public devnet RPC (user requested to switch from custom RPC)
         const connection = new Connection(
-            process.env.NEXT_PUBLIC_RPC_URL || "https://api.devnet.solana.com",
-            {
-                commitment: "confirmed",
-                httpHeaders: {
-                    Origin: "https://optionsfi.xyz",
-                },
-            }
+            "https://api.devnet.solana.com",
+            "confirmed"
         );
 
         console.log("Using underlying mint:", MOCK_NVDAX_MINT.toBase58());
