@@ -1,424 +1,298 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, ChevronDown, ChevronRight, Zap, Shield, Clock, TrendingUp, Users, Building, Code } from "lucide-react";
+import {
+    ArrowLeft, Zap, Shield, Clock, TrendingUp, Users, Building,
+    Code, Terminal, Activity, Wallet, BookOpen, ChevronRight, Menu
+} from "lucide-react";
 
 /**
- * V2 Documentation Page
- * 
- * Comprehensive documentation for OptionsFi V2 Vault system.
- * Accessible at /v2/docs
+ * V2 Documentation Page - Mintlify Style
+ * Sidebar Navigation + Main Content Area with Card Grids
  */
 export default function V2DocsPage() {
-    const [openSection, setOpenSection] = useState<string | null>("overview");
+    const [activeSection, setActiveSection] = useState("introduction");
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    // simple scroll spy could be added here, but for now we rely on clicks
+
+    const scrollTo = (id: string) => {
+        setActiveSection(id);
+        const el = document.getElementById(id);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // offset for header
+            window.scrollBy(0, -80);
+        }
+        setMobileMenuOpen(false);
+    };
+
+    const navItems = [
+        { id: "introduction", label: "Introduction", icon: <BookOpen className="w-4 h-4" /> },
+        { id: "depositors", label: "For Depositors", icon: <Users className="w-4 h-4" /> },
+        { id: "market-makers", label: "For Market Makers", icon: <Terminal className="w-4 h-4" /> },
+        { id: "contracts", label: "Contracts", icon: <Code className="w-4 h-4" /> },
+    ];
 
     return (
-        <div className="max-w-5xl mx-auto px-4 py-4">
-            {/* Navigation */}
-            <Link href="/v2" className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-4 transition-colors text-sm">
-                <ArrowLeft className="w-4 h-4" />
-                Back to Earn
-            </Link>
-
-            {/* Header */}
-            <div className="mb-6">
-                <div className="flex items-center gap-3 mb-4">
-                    <h1 className="text-4xl font-bold text-white">
-                        OptionsFi V2
-                    </h1>
-                    <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-medium">
-                        Devnet Live
-                    </span>
-                </div>
-                <p className="text-xl text-gray-400 max-w-3xl">
-                    Earn passive yield on your xStock tokens through automated covered call strategies.
-                    Professional-grade options infrastructure, simplified for everyone.
-                </p>
+        <div className="min-h-screen bg-[#0B0F17] text-white">
+            {/* Mobile Header */}
+            <div className="lg:hidden flex items-center justify-between p-4 border-b border-gray-800 sticky top-0 bg-[#0B0F17]/90 backdrop-blur z-50">
+                <span className="font-bold">OptionsFi Docs</span>
+                <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+                    <Menu className="w-6 h-6" />
+                </button>
             </div>
 
-            {/* Quick Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                <StatCard label="Strategy" value="Covered Calls" />
-                <StatCard label="Epoch Length" value="7 Days" />
-                <StatCard label="Target APY" value="15-60%" />
-                <StatCard label="Strike Offset" value="10% OTM" />
-            </div>
+            <div className="max-w-[1400px] mx-auto flex">
 
-            {/* Accordion Sections */}
-            <div className="space-y-3">
-                <AccordionSection
-                    id="overview"
-                    title="What is OptionsFi?"
-                    icon={<Zap className="w-5 h-5" />}
-                    isOpen={openSection === "overview"}
-                    onToggle={() => setOpenSection(openSection === "overview" ? null : "overview")}
-                >
-                    <p className="text-gray-400 mb-4">
-                        OptionsFi is a <strong className="text-white">DeFi covered call vault</strong> built on Solana.
-                        It enables users to earn yield on their xStock tokens (synthetic stock tokens) by automatically
-                        writing covered call options.
-                    </p>
-
-                    <div className="grid md:grid-cols-2 gap-4 mt-6">
-                        <FeatureCard
-                            title="Passive Yield"
-                            description="Deposit tokens and earn premium income without active management"
-                        />
-                        <FeatureCard
-                            title="Professional Strategy"
-                            description="Covered call writing used by institutional investors worldwide"
-                        />
-                        <FeatureCard
-                            title="On-Chain Execution"
-                            description="Transparent, verifiable transactions on Solana"
-                        />
-                        <FeatureCard
-                            title="RFQ Infrastructure"
-                            description="Institutional-grade pricing from competing market makers"
-                        />
-                    </div>
-                </AccordionSection>
-
-                <AccordionSection
-                    id="covered-calls"
-                    title="Understanding Covered Calls"
-                    icon={<TrendingUp className="w-5 h-5" />}
-                    isOpen={openSection === "covered-calls"}
-                    onToggle={() => setOpenSection(openSection === "covered-calls" ? null : "covered-calls")}
-                >
-                    <p className="text-gray-400 mb-4">
-                        A <strong className="text-white">covered call</strong> is an options strategy where you own
-                        an underlying asset and sell call options against it to generate income.
-                    </p>
-
-                    <div className="bg-gray-800/50 rounded-xl p-6 mb-6 font-mono text-sm">
-                        <p className="text-green-400 mb-2">Example: NVDAx Covered Call</p>
-                        <div className="space-y-1 text-gray-300">
-                            <p>You own: 100 NVDAx (worth $17,710 at $177.10/share)</p>
-                            <p>You sell: Call option with $195 strike, 7 days expiry</p>
-                            <p>You receive: $150 premium (0.85% yield)</p>
+                {/* Sidebar Navigation */}
+                <aside className={`
+                    fixed inset-y-0 left-0 z-40 w-64 border-r border-gray-800 bg-[#0B0F17] transform transition-transform duration-300
+                    lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:block
+                    ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
+                `}>
+                    <div className="p-6 h-full flex flex-col">
+                        <div className="mb-8">
+                            <Link href="/v2" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors mb-6">
+                                <ArrowLeft className="w-4 h-4" />
+                                Back to App
+                            </Link>
+                            <h1 className="text-xl font-bold flex items-center gap-2">
+                                <span className="bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">OptionsFi</span>
+                                <span className="text-gray-500 font-normal">Docs</span>
+                            </h1>
                         </div>
-                        <div className="mt-4 pt-4 border-t border-gray-700">
-                            <p className="text-gray-400 mb-2">Scenarios at expiry:</p>
-                            <p className="text-green-400">✓ NVDA at $180 → Keep shares + $150 premium</p>
-                            <p className="text-green-400">✓ NVDA at $190 → Keep shares + $150 premium</p>
-                            <p className="text-yellow-400">△ NVDA at $200 → Sell at $195, keep $150 (missed $5 upside)</p>
+
+                        <nav className="space-y-1 flex-1">
+                            {navItems.map(item => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => scrollTo(item.id)}
+                                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeSection === item.id
+                                            ? "bg-blue-500/10 text-blue-400"
+                                            : "text-gray-400 hover:text-white hover:bg-white/5"
+                                        }`}
+                                >
+                                    {item.icon}
+                                    {item.label}
+                                </button>
+                            ))}
+                        </nav>
+
+                        <div className="mt-auto pt-6 border-t border-gray-800">
+                            <div className="text-xs text-gray-500 uppercase font-semibold mb-3">Links</div>
+                            <a href="https://github.com/optionsfi" target="_blank" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white mb-2">
+                                <Code className="w-4 h-4" /> GitHub
+                            </a>
                         </div>
                     </div>
+                </aside>
 
-                    <p className="text-gray-400">
-                        <strong className="text-white">Key Insight:</strong> You collect premium regardless of price movement.
-                        The trade-off is capping your upside if the price rises significantly above the strike.
-                    </p>
-                </AccordionSection>
+                {/* Main Content */}
+                <main className="flex-1 px-6 py-10 lg:px-12 max-w-5xl">
 
-                <AccordionSection
-                    id="vault"
-                    title="How the Vault Works"
-                    icon={<Building className="w-5 h-5" />}
-                    isOpen={openSection === "vault"}
-                    onToggle={() => setOpenSection(openSection === "vault" ? null : "vault")}
-                >
-                    <div className="space-y-6">
-                        <Step number={1} title="Deposit">
-                            <p>Deposit xStock tokens (e.g., NVDAx) into the vault. You receive vault shares (vNVDAx)
-                                representing your ownership.</p>
-                        </Step>
-
-                        <Step number={2} title="Epoch Starts">
-                            <p>At the start of each epoch, the vault calculates the strike price (current price + 10% OTM)
-                                and broadcasts an RFQ to market makers.</p>
-                        </Step>
-
-                        <Step number={3} title="Collect Quotes">
-                            <p>Market makers submit competing quotes. The vault selects the best quote (highest premium)
-                                and accepts it.</p>
-                        </Step>
-
-                        <Step number={4} title="Premium Earned">
-                            <p>The premium is credited to the vault. This yield accrues to all depositors proportionally.</p>
-                        </Step>
-
-                        <Step number={5} title="Settlement">
-                            <p>At epoch end, options settle based on the final price. If price stayed below strike,
-                                vault keeps full premium. If above, difference is paid out.</p>
-                        </Step>
-
-                        <Step number={6} title="Withdraw">
-                            <p>After epoch ends, you can claim your tokens plus accumulated yield.</p>
-                        </Step>
-                    </div>
-                </AccordionSection>
-
-                <AccordionSection
-                    id="epochs"
-                    title="Epoch Lifecycle"
-                    icon={<Clock className="w-5 h-5" />}
-                    isOpen={openSection === "epochs"}
-                    onToggle={() => setOpenSection(openSection === "epochs" ? null : "epochs")}
-                >
-                    <p className="text-gray-400 mb-6">
-                        Epochs are fixed 7-day periods during which options are active. Here's the timeline:
-                    </p>
-
-                    <div className="bg-gray-800/50 rounded-xl overflow-hidden mb-6">
-                        <div className="grid grid-cols-7 text-center text-xs text-gray-500 py-2 border-b border-gray-700">
-                            <div>Day 0</div>
-                            <div>Day 1</div>
-                            <div>Day 2</div>
-                            <div>Day 3</div>
-                            <div>Day 4</div>
-                            <div>Day 5</div>
-                            <div>Day 6-7</div>
-                        </div>
-                        <div className="grid grid-cols-7">
-                            <div className="p-2 bg-green-500/20 text-green-400 text-xs text-center">Start</div>
-                            <div className="p-2 text-gray-500 text-xs text-center col-span-4">Active</div>
-                            <div className="p-2 bg-blue-500/20 text-blue-400 text-xs text-center">Settle</div>
-                            <div className="p-2 bg-purple-500/20 text-purple-400 text-xs text-center">Claim</div>
-                        </div>
-                    </div>
-
-                    <div className="grid md:grid-cols-2 gap-4">
-                        <InfoCard title="Deposits" status="Anytime">
-                            New deposits join the next epoch's collateral pool.
-                        </InfoCard>
-                        <InfoCard title="Withdrawals" status="Epoch End">
-                            Request withdrawal anytime, claim after epoch ends.
-                        </InfoCard>
-                        <InfoCard title="Premium" status="Day 0">
-                            Collected at epoch start after RFQ completes.
-                        </InfoCard>
-                        <InfoCard title="Settlement" status="Day 7">
-                            Options settle, yield distributed to depositors.
-                        </InfoCard>
-                    </div>
-                </AccordionSection>
-
-                <AccordionSection
-                    id="risks"
-                    title="Risk Profile"
-                    icon={<Shield className="w-5 h-5" />}
-                    isOpen={openSection === "risks"}
-                    onToggle={() => setOpenSection(openSection === "risks" ? null : "risks")}
-                >
-                    <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 mb-6">
-                        <p className="text-yellow-300 text-sm">
-                            <strong>Important:</strong> Covered call strategies involve risk. Understand these risks before depositing.
+                    {/* SECTION: INTRODUCTION */}
+                    <div id="introduction" className="mb-20 scroll-mt-24">
+                        <h1 className="text-4xl font-bold mb-4">Introduction</h1>
+                        <p className="text-xl text-gray-400 mb-8 leading-relaxed">
+                            OptionsFi is a decentralized protocol for automated covered call strategies on Solana.
+                            We connect passive depositors with professional market makers via a high-frequency RFQ system.
                         </p>
-                    </div>
 
-                    <div className="space-y-4">
-                        <RiskCard
-                            title="1. Upside Cap Risk"
-                            severity="Medium"
-                            description="If the underlying rises above the strike price, you miss gains beyond that level. With 10% OTM strikes, you still capture up to 10% upside."
-                        />
-                        <RiskCard
-                            title="2. Downside Risk"
-                            severity="Unchanged"
-                            description="If the underlying drops, your tokens lose value. The premium provides a small buffer, but doesn't protect against large drops."
-                        />
-                        <RiskCard
-                            title="3. Liquidity Risk"
-                            severity="Low"
-                            description="Withdrawals are only available at epoch end (every 7 days). You cannot exit mid-epoch."
-                        />
-                        <RiskCard
-                            title="4. Smart Contract Risk"
-                            severity="Low"
-                            description="Bugs in the protocol could result in loss of funds. Code is open-source and audited."
-                        />
-                    </div>
-                </AccordionSection>
+                        <div className="grid md:grid-cols-2 gap-4 mb-12">
+                            <Card
+                                title="Quickstart Guide"
+                                icon={<Zap className="w-6 h-6 text-green-400" />}
+                                onClick={() => scrollTo("depositors")}
+                                desc="Learn how to deposit assets and start earning yield in minutes."
+                            />
+                            <Card
+                                title="Market Making"
+                                icon={<Terminal className="w-6 h-6 text-blue-400" />}
+                                onClick={() => scrollTo("market-makers")}
+                                desc="Integrate your trading bot with our WebSocket RFQ router."
+                            />
+                        </div>
 
-                <AccordionSection
-                    id="rfq"
-                    title="RFQ System"
-                    icon={<Users className="w-5 h-5" />}
-                    isOpen={openSection === "rfq"}
-                    onToggle={() => setOpenSection(openSection === "rfq" ? null : "rfq")}
-                >
-                    <p className="text-gray-400 mb-6">
-                        The Request-for-Quote (RFQ) system enables institutional-grade option pricing through
-                        competitive market maker quotes.
-                    </p>
-
-                    <div className="bg-gray-800/50 rounded-xl p-6 font-mono text-sm mb-6">
-                        <div className="space-y-2 text-gray-300">
-                            <p><span className="text-blue-400">1.</span> Vault broadcasts RFQ with strike, expiry, size</p>
-                            <p><span className="text-blue-400">2.</span> Market makers connect via WebSocket</p>
-                            <p><span className="text-blue-400">3.</span> Quotes submitted with premium offers</p>
-                            <p><span className="text-blue-400">4.</span> Best quote (highest premium) selected</p>
-                            <p><span className="text-blue-400">5.</span> Trade executed on-chain</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <StatBox label="Strategy" value="Covered Calls" />
+                            <StatBox label="Settlement" value="Cash (USDC)" />
+                            <StatBox label="Epochs" value="7d / 15m" />
+                            <StatBox label="Chain" value="Solana" />
                         </div>
                     </div>
 
-                    <p className="text-gray-400">
-                        This approach ensures competitive pricing and connects DeFi vaults with professional
-                        options market makers.
-                    </p>
-                </AccordionSection>
+                    {/* SECTION: DEPOSITORS */}
+                    <div id="depositors" className="mb-20 scroll-mt-24 pt-8 border-t border-gray-800/50">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400"><Users className="w-6 h-6" /></div>
+                            <h2 className="text-3xl font-bold">For Depositors</h2>
+                        </div>
 
-                <AccordionSection
-                    id="tech"
-                    title="Technical Architecture"
-                    icon={<Code className="w-5 h-5" />}
-                    isOpen={openSection === "tech"}
-                    onToggle={() => setOpenSection(openSection === "tech" ? null : "tech")}
-                >
-                    <div className="mb-6">
-                        <h4 className="text-white font-semibold mb-3">Smart Contracts</h4>
-                        <div className="bg-gray-800/50 rounded-xl overflow-hidden">
-                            <table className="w-full text-sm">
-                                <tbody>
-                                    <tr className="border-b border-gray-700">
-                                        <td className="p-3 text-gray-400">Vault</td>
-                                        <td className="p-3 font-mono text-xs text-gray-300">8gJH...NuPY</td>
-                                        <td className="p-3 text-gray-400">Deposits, withdrawals, share minting</td>
-                                    </tr>
-                                    <tr className="border-b border-gray-700">
-                                        <td className="p-3 text-gray-400">RFQ</td>
-                                        <td className="p-3 font-mono text-xs text-gray-300">3M2K...DT5Z</td>
-                                        <td className="p-3 text-gray-400">Quote settlement, maker registry</td>
-                                    </tr>
+                        <p className="text-gray-400 mb-8 max-w-3xl">
+                            Depositing into OptionsFi V2 is a streamlined process. You provide the collateral,
+                            and the vault manages the option writing, RFQ auctions, and settlement automatically.
+                        </p>
+
+                        <h3 className="text-xl font-semibold text-white mb-4">How it Works</h3>
+                        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
+                            <StepCard num="01" title="Deposit" desc="Add xStock tokens (e.g. NVDAx) to the vault. You get share tokens back." />
+                            <StepCard num="02" title="Auction" desc="At epoch start, vault requests quotes. MMs bid premiums." />
+                            <StepCard num="03" title="Yield" desc="Best bid wins. Premium is paid instantly to the vault." />
+                            <StepCard num="04" title="Settle" desc="At epoch end, profits/losses settle. You can withdraw." />
+                        </div>
+
+                        <h3 className="text-xl font-semibold text-white mb-4">Risk Profile</h3>
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <RiskBox title="Upside Capping" severity="Medium" text="If price rallies >10%, you miss the extra gains. The vault sells the upside." />
+                            <RiskBox title="Principal Risk" severity="High" text="If underlying asset crashes, your collateral value drops. Premium provides only a small buffer." />
+                        </div>
+                    </div>
+
+                    {/* SECTION: MARKET MAKERS */}
+                    <div id="market-makers" className="mb-20 scroll-mt-24 pt-8 border-t border-gray-800/50">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 bg-green-500/20 rounded-lg text-green-400"><Terminal className="w-6 h-6" /></div>
+                            <h2 className="text-3xl font-bold">For Market Makers</h2>
+                        </div>
+
+                        <p className="text-gray-400 mb-8 max-w-3xl">
+                            We use an off-chain WebSocket RFQ router to ensure zero-latency pricing discovery,
+                            with on-chain atomic settlement to guarantee trustlessness.
+                        </p>
+
+                        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-8">
+                            <h4 className="text-sm font-semibold uppercase text-gray-500 mb-4">Connection Details</h4>
+                            <div className="grid md:grid-cols-2 gap-8">
+                                <div>
+                                    <label className="text-xs text-gray-500 block mb-1">WebSocket URL</label>
+                                    <code className="bg-black px-3 py-2 rounded text-green-400 text-sm block">wss://rfq.optionsfi.xyz</code>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-500 block mb-1">Auth Header</label>
+                                    <code className="bg-black px-3 py-2 rounded text-blue-400 text-sm block">Authorization: Bearer KEY</code>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h3 className="text-xl font-semibold text-white mb-4">Message Flow</h3>
+                        <div className="space-y-4">
+                            <CodeBlock title="1. Receive RFQ" code={`
+{
+  "type": "rfq",
+  "rfqId": "123-abc",
+  "underlying": "NVDAx",
+  "expiry": 1735689000,
+  "strike": 150.00
+}`} />
+                            <CodeBlock title="2. Send Quote" code={`
+{
+  "type": "quote",
+  "rfqId": "123-abc",
+  "price": 2.55,
+  "signature": "..."
+}`} />
+                        </div>
+                    </div>
+
+                    {/* SECTION: CONTRACTS */}
+                    <div id="contracts" className="mb-20 scroll-mt-24 pt-8 border-t border-gray-800/50">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 bg-purple-500/20 rounded-lg text-purple-400"><Code className="w-6 h-6" /></div>
+                            <h2 className="text-3xl font-bold">Contracts</h2>
+                        </div>
+
+                        <div className="rounded-xl border border-gray-800 overflow-hidden">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-gray-900 text-gray-400">
                                     <tr>
-                                        <td className="p-3 text-gray-400">Oracle</td>
-                                        <td className="p-3 font-mono text-xs text-gray-300">Pyth Network</td>
-                                        <td className="p-3 text-gray-400">Real-time NVDA price feeds</td>
+                                        <th className="p-4 font-medium">Name</th>
+                                        <th className="p-4 font-medium">Address (Devnet)</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-800">
+                                    <tr className="hover:bg-white/5">
+                                        <td className="p-4">Vault Program</td>
+                                        <td className="p-4 font-mono text-gray-400">A4jgqct3bwTwRmHECHdPpbH3a8ksaVb7rny9pMUGFo94</td>
+                                    </tr>
+                                    <tr className="hover:bg-white/5">
+                                        <td className="p-4">RFQ Router</td>
+                                        <td className="p-4 font-mono text-gray-400">3M2K6htNbWyZHtvvUyUME19f5GUS6x8AtGmitFENDT5Z</td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
 
-                    <div>
-                        <h4 className="text-white font-semibold mb-3">Tech Stack</h4>
-                        <div className="flex flex-wrap gap-2">
-                            {["Solana", "Anchor", "Pyth", "Next.js", "TypeScript", "WebSocket"].map((tech) => (
-                                <span
-                                    key={tech}
-                                    className="px-3 py-1.5 bg-gray-800 text-gray-300 rounded-lg text-sm"
-                                >
-                                    {tech}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                </AccordionSection>
-            </div>
-
-            {/* CTA */}
-            <div className="mt-8 p-4 bg-gradient-to-r from-green-500/5 to-blue-500/5 rounded-xl border border-gray-700/50 text-center">
-                <h3 className="text-xl font-bold text-white mb-2">Ready to Start Earning?</h3>
-                <p className="text-gray-400 mb-4">Deposit your xStock tokens and earn yield from covered call premiums.</p>
-                <Link
-                    href="/v2/earn/nvdax"
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-green-500 hover:bg-green-600 text-black font-semibold rounded-xl transition-colors"
-                >
-                    Go to NVDAx Vault
-                    <ChevronRight className="w-4 h-4" />
-                </Link>
+                </main>
             </div>
         </div>
     );
 }
 
-// Helper Components
+// ----------------------------------------------------------------------
+// COMPONENTS
+// ----------------------------------------------------------------------
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function Card({ title, desc, icon, onClick }: { title: string; desc: string; icon: React.ReactNode; onClick?: () => void }) {
     return (
-        <div className="rounded-xl bg-gray-800/40 border border-gray-700/40 p-3 text-center">
-            <p className="text-xs text-gray-500 mb-0.5">{label}</p>
-            <p className="text-sm font-bold text-white">{value}</p>
-        </div>
-    );
-}
-
-function AccordionSection({
-    id, title, icon, children, isOpen, onToggle
-}: {
-    id: string;
-    title: string;
-    icon: React.ReactNode;
-    children: React.ReactNode;
-    isOpen: boolean;
-    onToggle: () => void;
-}) {
-    return (
-        <div className="border border-gray-700/50 rounded-xl overflow-hidden">
-            <button
-                onClick={onToggle}
-                className="w-full flex items-center justify-between p-3 bg-gray-800/30 hover:bg-gray-800/50 transition-colors"
-            >
-                <div className="flex items-center gap-3">
-                    <span className="text-green-400">{icon}</span>
-                    <span className="text-lg font-semibold text-white">{title}</span>
-                </div>
-                <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {isOpen && (
-                <div className="p-4 bg-gray-900/30">
-                    {children}
-                </div>
-            )}
-        </div>
-    );
-}
-
-function FeatureCard({ title, description }: { title: string; description: string }) {
-    return (
-        <div className="bg-gray-800/30 border border-gray-700/30 rounded-xl p-4">
-            <h4 className="font-semibold text-white mb-1">{title}</h4>
-            <p className="text-sm text-gray-400">{description}</p>
-        </div>
-    );
-}
-
-function Step({ number, title, children }: { number: number; title: string; children: React.ReactNode }) {
-    return (
-        <div className="flex gap-4">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center font-bold text-sm">
-                {number}
+        <button onClick={onClick} className="text-left group p-6 rounded-xl border border-gray-800 bg-gray-900/50 hover:border-gray-600 hover:bg-gray-900 transition-all">
+            <div className="mb-4 p-3 bg-gray-800 rounded-lg w-fit group-hover:scale-110 transition-transform">
+                {icon}
             </div>
-            <div className="flex-1">
-                <h4 className="font-semibold text-white mb-1">{title}</h4>
-                <div className="text-sm text-gray-400">{children}</div>
-            </div>
+            <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+                {title} <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </h3>
+            <p className="text-gray-400 text-sm leading-relaxed">{desc}</p>
+        </button>
+    );
+}
+
+function StatBox({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="p-4 rounded-xl bg-gray-900/30 border border-gray-800 text-center">
+            <p className="text-xs text-gray-500 uppercase font-semibold mb-1">{label}</p>
+            <p className="text-white font-mono font-medium">{value}</p>
         </div>
     );
 }
 
-function InfoCard({ title, status, children }: { title: string; status: string; children: React.ReactNode }) {
+function StepCard({ num, title, desc }: { num: string; title: string; desc: string }) {
     return (
-        <div className="bg-gray-800/30 border border-gray-700/30 rounded-xl p-4">
-            <div className="flex justify-between items-center mb-2">
+        <div className="p-5 rounded-xl border border-gray-800 bg-gray-900/20 relative overflow-hidden">
+            <span className="absolute top-2 right-3 text-4xl font-bold text-gray-800/50 select-none">{num}</span>
+            <h4 className="text-white font-semibold mb-2 relative z-10">{title}</h4>
+            <p className="text-sm text-gray-400 relative z-10">{desc}</p>
+        </div>
+    );
+}
+
+function RiskBox({ title, severity, text }: { title: string; severity: "Medium" | "High"; text: string }) {
+    return (
+        <div className="p-5 rounded-xl border border-gray-800 bg-gray-900/20">
+            <div className="flex justify-between mb-2">
                 <h4 className="font-semibold text-white">{title}</h4>
-                <span className="text-xs px-2 py-0.5 bg-gray-700 text-gray-300 rounded">{status}</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded uppercase font-bold ${severity === "High" ? "bg-red-500/20 text-red-400" : "bg-yellow-500/20 text-yellow-400"
+                    }`}>{severity}</span>
             </div>
-            <p className="text-sm text-gray-400">{children}</p>
+            <p className="text-sm text-gray-400">{text}</p>
         </div>
     );
 }
 
-function RiskCard({ title, severity, description }: { title: string; severity: string; description: string }) {
-    const severityColors = {
-        Low: "text-green-400 bg-green-500/20",
-        Medium: "text-yellow-400 bg-yellow-500/20",
-        High: "text-red-400 bg-red-500/20",
-        Unchanged: "text-gray-400 bg-gray-500/20",
-    };
-
+function CodeBlock({ title, code }: { title: string; code: string }) {
     return (
-        <div className="bg-gray-800/30 border border-gray-700/30 rounded-xl p-4">
-            <div className="flex justify-between items-start mb-2">
-                <h4 className="font-semibold text-white">{title}</h4>
-                <span className={`text-xs px-2 py-0.5 rounded ${severityColors[severity as keyof typeof severityColors]}`}>
-                    {severity}
-                </span>
+        <div className="rounded-xl border border-gray-800 overflow-hidden bg-[#0d1117]">
+            <div className="px-4 py-2 border-b border-gray-800 bg-gray-900/50 text-xs text-gray-400 font-mono">
+                {title}
             </div>
-            <p className="text-sm text-gray-400">{description}</p>
+            <div className="p-4 overflow-x-auto">
+                <pre className="text-xs md:text-sm font-mono text-gray-300 leading-relaxed">
+                    {code.trim()}
+                </pre>
+            </div>
         </div>
     );
 }
