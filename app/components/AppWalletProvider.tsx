@@ -29,7 +29,12 @@ export default function AppWalletProvider({
     );
 
     return (
-        <ConnectionProvider endpoint={endpoint}>
+        <ConnectionProvider
+            endpoint={endpoint}
+            config={{
+                wsEndpoint: process.env.NEXT_PUBLIC_WSS_URL
+            }}
+        >
             <WalletProvider wallets={wallets} autoConnect>
                 <WalletModalProvider>{children}</WalletModalProvider>
             </WalletProvider>
