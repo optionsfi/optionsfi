@@ -5,7 +5,9 @@
     "main": "index.js",
     "scripts": {
         "dev": "node index.js",
-        "start": "node index.js"
+        "start": "node index.js",
+        "start:mm": "node mock-mm.js",
+        "start:multi-mm": "node multi-mm.js 5"
     },
     "dependencies": {
         "@solana/spl-token": "^0.4.14",
