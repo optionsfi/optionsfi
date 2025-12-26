@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Connection, PublicKey, ParsedTransactionWithMeta } from "@solana/web3.js";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
-import { VAULT_PROGRAM_ID } from "../lib/vault-sdk";
+import { VAULT_PROGRAM_ID, VAULTS, deriveVaultPda } from "../lib/vault-sdk";
 
 export interface WalletActivity {
     signature: string;
@@ -57,23 +57,14 @@ export function useWalletActivity() {
 
                     if (!tx || !tx.meta) continue;
 
-                    // Check if this transaction involves our vault program
                     const accountKeys = tx.transaction.message.accountKeys;
-                    const involvesVault = accountKeys.some(
-                        (key) => key.pubkey.toString() === VAULT_PROGRAM_ID.toString()
-                    );
 
-                    if (!involvesVault) continue;
-
-                    // Parse the vault ID from account keys by matching against known vault PDAs
+                    // Parse the vault ID from account keys solely based on ACTIVE vaults
                     let vaultId: string | undefined;
-                    const knownVaultIds = ["nvdax", "tslax", "spyx", "aaplx", "metax"];
-                    for (const id of knownVaultIds) {
-                        // Derive the vault PDA for this asset
-                        const [vaultPda] = PublicKey.findProgramAddressSync(
-                            [Buffer.from("vault"), Buffer.from(id.charAt(0).toUpperCase() + id.slice(1, -1).toUpperCase() + 'x')],
-                            VAULT_PROGRAM_ID
-                        );
+                    let involvesActiveVault = false;
+
+                    for (const [id, config] of Object.entries(VAULTS)) {
+                        const [vaultPda] = deriveVaultPda(config.assetId);
 
                         // Check if this vault PDA is in the transaction accounts
                         const isInTx = accountKeys.some(
@@ -82,9 +73,12 @@ export function useWalletActivity() {
 
                         if (isInTx) {
                             vaultId = id;
+                            involvesActiveVault = true;
                             break;
                         }
                     }
+
+                    if (!involvesActiveVault) continue;
 
                     // Parse the transaction type from logs
                     const logs = tx.meta.logMessages || [];

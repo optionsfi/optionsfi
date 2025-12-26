@@ -40,41 +40,39 @@ interface Position {
     unrealizedPnl: number;
     unrealizedPnlPercent: number;
     accruedPremium: number; // From vault state (0 if none yet)
-    nextRollIn: string;
-    withdrawUnlockIn: string;
+    epochEndTimestamp: number;
     epochProgress: number;
     vaultApy: number;
 }
 
-function getNextRollTime(): { hours: number; minutes: number; timeString: string } {
-    const now = new Date();
-    const utcHours = now.getUTCHours();
-    const utcMinutes = now.getUTCMinutes();
 
-    // Find next 6-hour mark
-    const nextRollHour = Math.ceil((utcHours + 1) / 6) * 6;
-    const hoursUntil = nextRollHour - utcHours - 1;
-    const minutesUntil = 60 - utcMinutes;
+// Helper to calculate epoch timing for a specific vault
+function calculateEpochTiming(vault: any, assetId: string) {
+    if (!vault) return { epochEndTimestamp: 0, epochProgress: 0 };
 
-    const totalMinutes = hoursUntil * 60 + minutesUntil;
-    const h = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
+    const lastRoll = Number(vault.lastRollTimestamp || 0) * 1000;
+    // Fallback: 3 min for demo, 7 days for prod if 0 on-chain
+    let minDuration = Number(vault.minEpochDuration || 0) * 1000;
+    if (minDuration === 0) {
+        minDuration = assetId.toLowerCase().includes("demo") ? 180 * 1000 : 604800 * 1000;
+    }
+
+    // If lastRoll is 0 (fresh vault, never rolled), assume next roll is minDuration from now?
+    // Or better, assume it's uninitialized and waiting.
+    // For demo purposes, we fallback to relative time if 0, but usually it's > 0 if active.
+    const epochEnd = lastRoll > 0 ? lastRoll + minDuration : Date.now() + minDuration;
+
+    // Progress
+    const now = Date.now();
+    const elapsed = now - lastRoll;
+    const progress = Math.min(100, Math.max(0, (elapsed / minDuration) * 100));
 
     return {
-        hours: h,
-        minutes: m,
-        timeString: h > 0 ? `${h}h ${m}m` : `${m}m`
+        epochEndTimestamp: epochEnd,
+        epochProgress: Math.floor(progress)
     };
 }
 
-const getEpochTiming = () => {
-    const next = getNextRollTime();
-    return {
-        nextRollIn: next.timeString,
-        withdrawUnlockIn: next.timeString,
-        epochProgress: Math.floor(((6 - next.hours) / 6) * 100),
-    };
-};
 
 // Modal for managing a position (deposit/withdraw) without leaving Portfolio
 function ManagePositionModal({
@@ -319,7 +317,7 @@ function ManagePositionModal({
                                     <div className="bg-gray-800/50 rounded-lg p-3 text-xs text-gray-400">
                                         <p className="flex items-center gap-1.5">
                                             <Clock className="w-3.5 h-3.5" />
-                                            Withdrawals are queued and processed at epoch end ({position.withdrawUnlockIn})
+                                            Withdrawals are queued and processed at epoch end (<VaultTimer targetTime={position.epochEndTimestamp} />)
                                         </p>
                                     </div>
 
@@ -393,7 +391,6 @@ export default function PortfolioPage() {
     const [openMenu, setOpenMenu] = useState<string | null>(null);
     const [managingPosition, setManagingPosition] = useState<Position | null>(null);
 
-    const epochTiming = useMemo(() => getEpochTiming(), []);
 
     // Calculate cost basis from deposit history
     const costBasisByVault = useMemo(() => {
@@ -462,6 +459,7 @@ export default function PortfolioPage() {
                 const vaultApy = vault.apy || 0;
 
                 if (userShares > 0) {
+                    const timing = calculateEpochTiming(vault, id);
                     userPositions.push({
                         vaultId: id,
                         symbol: meta.symbol,
@@ -473,9 +471,10 @@ export default function PortfolioPage() {
                         unrealizedPnl,
                         unrealizedPnlPercent,
                         accruedPremium,
-                        nextRollIn: epochTiming.nextRollIn,
-                        withdrawUnlockIn: epochTiming.withdrawUnlockIn,
-                        epochProgress: epochTiming.epochProgress,
+                        unrealizedPnlPercent,
+                        accruedPremium,
+                        epochEndTimestamp: timing.epochEndTimestamp,
+                        epochProgress: timing.epochProgress,
                         vaultApy,
                     });
                 }
@@ -483,7 +482,7 @@ export default function PortfolioPage() {
         });
         userPositions.sort((a, b) => b.sharesUsd - a.sharesUsd);
         return userPositions;
-    }, [vaults, epochTiming, getPrice, costBasisByVault]);
+    }, [vaults, getPrice, costBasisByVault]);
 
     // Stats from real data with P&L breakdown
     const stats = useMemo(() => {
@@ -830,14 +829,14 @@ export default function PortfolioPage() {
 
                         {/* Next Roll Section */}
                         {nextRoll && (
-                            <div className="border-t border-gray-700/40 p-4 bg-blue-500/5">
+                            <div className="border-t border-gray-700/40 p-4">
                                 <div className="flex items-center justify-between mb-2">
                                     <h3 className="text-xs font-medium text-blue-400 uppercase tracking-wide flex items-center gap-1.5"><Zap className="w-3.5 h-3.5" /> Next</h3>
-                                    <span className="text-xs font-bold text-white bg-blue-500/20 px-2 py-0.5 rounded-full">{nextRoll.nextRollIn}</span>
+                                    <VaultTimer targetTime={nextRoll.epochEndTimestamp} className="text-xs font-medium text-blue-400" />
                                 </div>
                                 <div className="space-y-1.5 text-sm">
                                     <div className="flex justify-between"><span className="text-gray-400">Est. Distribution</span><span className="text-green-400">{formatCurrency(stats.totalAccrued)}</span></div>
-                                    <div className="flex justify-between"><span className="text-gray-400">Withdraw Unlock</span><span className="text-gray-300">{nextRoll.withdrawUnlockIn}</span></div>
+                                    <div className="flex justify-between"><span className="text-gray-400">Withdraw Unlock</span><VaultTimer targetTime={nextRoll.epochEndTimestamp} className="text-gray-300" /></div>
                                 </div>
                             </div>
                         )}
@@ -888,7 +887,7 @@ export default function PortfolioPage() {
                                 </button>
                             )}
                         </div>
-                        <div className="bg-gray-800/40 rounded-xl border border-gray-700/40 divide-y divide-gray-700/40">
+                        <div className="rounded-xl border border-gray-700/40 divide-y divide-gray-700/40">
                             {positions.map((position) => (
                                 <PositionRow
                                     key={position.vaultId}
@@ -1125,23 +1124,25 @@ function ChartContent({ chartData, chartMin, chartMax, minTime, timeRange, netDe
             </svg>
 
             {/* Event markers */}
-            {eventMarkers.map((m, i) => {
-                const cfg = eventLabels[m.event || ""] || { label: m.event, color: "bg-gray-500" };
-                const isHovered = hoveredEvent === i;
-                return (
-                    <div key={i} className="absolute" style={{ left: `${m.x}%`, top: `${m.y}%`, transform: "translate(-50%, -50%)" }}
-                        onMouseEnter={() => setHoveredEvent(i)} onMouseLeave={() => setHoveredEvent(null)}>
-                        <div className={`w-2 h-2 rounded-full ${cfg.color} ring-2 ring-white/20 cursor-pointer transition-transform ${isHovered ? "scale-150" : ""}`} />
-                        {isHovered && (
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-[10px] text-white whitespace-nowrap z-10 shadow-lg">
-                                <div className="font-medium">{cfg.label}</div>
-                                <div>{chartMode === "performance" ? `${(m.value - 100).toFixed(2)}%` : formatCurrency(m.value)}</div>
-                                <div className="text-gray-500">{m.date.toLocaleString()}</div>
-                            </div>
-                        )}
-                    </div>
-                );
-            })}
+            {
+                eventMarkers.map((m, i) => {
+                    const cfg = eventLabels[m.event || ""] || { label: m.event, color: "bg-gray-500" };
+                    const isHovered = hoveredEvent === i;
+                    return (
+                        <div key={i} className="absolute" style={{ left: `${m.x}%`, top: `${m.y}%`, transform: "translate(-50%, -50%)" }}
+                            onMouseEnter={() => setHoveredEvent(i)} onMouseLeave={() => setHoveredEvent(null)}>
+                            <div className={`w-2 h-2 rounded-full ${cfg.color} ring-2 ring-white/20 cursor-pointer transition-transform ${isHovered ? "scale-150" : ""}`} />
+                            {isHovered && (
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-[10px] text-white whitespace-nowrap z-10 shadow-lg">
+                                    <div className="font-medium">{cfg.label}</div>
+                                    <div>{chartMode === "performance" ? `${(m.value - 100).toFixed(2)}%` : formatCurrency(m.value)}</div>
+                                    <div className="text-gray-500">{m.date.toLocaleString()}</div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })
+            }
 
             {/* Labels */}
             <div className="absolute top-1 right-1 text-[9px] text-gray-500 bg-gray-900/50 px-1 py-0.5 rounded">
@@ -1150,14 +1151,16 @@ function ChartContent({ chartData, chartMin, chartMax, minTime, timeRange, netDe
             <div className="absolute bottom-5 right-1 text-[9px] text-gray-500 bg-gray-900/50 px-1 py-0.5 rounded">
                 {chartMode === "performance" ? `${(chartMin - 100).toFixed(1)}%` : formatCurrency(chartMin)}
             </div>
-            {depositsY >= 10 && depositsY <= 90 && (
-                <div className="absolute left-1 text-[8px] text-yellow-400/60" style={{ top: `${depositsY}%`, transform: "translateY(-50%)" }}>Net Deposits</div>
-            )}
+            {
+                depositsY >= 10 && depositsY <= 90 && (
+                    <div className="absolute left-1 text-[8px] text-yellow-400/60" style={{ top: `${depositsY}%`, transform: "translateY(-50%)" }}>Net Deposits</div>
+                )
+            }
             <div className="absolute bottom-0 left-0 right-0 flex justify-between px-1 text-[9px] text-gray-600">
                 <span>{new Date(minTime).toLocaleDateString()}</span>
                 <span>Now</span>
             </div>
-        </div>
+        </div >
     );
 }
 
@@ -1188,7 +1191,7 @@ function PositionRow({ position, meta, formatCurrency, formatPercent, openMenu, 
                     </div>
                     <div className="text-center w-16">
                         <p className="text-gray-500">Next</p>
-                        <p className="text-white">{position.nextRollIn}</p>
+                        <VaultTimer targetTime={position.epochEndTimestamp} className="text-white" />
                     </div>
                 </div>
 
@@ -1282,4 +1285,37 @@ function getTimeAgo(date: Date): string {
     const hours = Math.floor(minutes / 60);
     if (hours < 24) return `${hours}h ago`;
     return `${Math.floor(hours / 24)}d ago`;
+}
+}
+
+function VaultTimer({ targetTime, className }: { targetTime: number, className?: string }) {
+    const [timeLeft, setTimeLeft] = useState(0);
+
+    useEffect(() => {
+        const update = () => {
+            const now = Date.now();
+            setTimeLeft(Math.max(0, targetTime - now));
+        };
+        update();
+        const interval = setInterval(update, 1000);
+        return () => clearInterval(interval);
+    }, [targetTime]);
+
+    if (timeLeft <= 0) return <span className={className}>Epoch End</span>;
+
+    const minutes = Math.floor(timeLeft / 60000);
+    const seconds = Math.floor((timeLeft % 60000) / 1000);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    let timeString = "";
+    if (days > 0) {
+        timeString = `${days}d ${hours % 24}h`;
+    } else if (hours > 0) {
+        timeString = `${hours}h ${minutes % 60}m`;
+    } else {
+        timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    return <span className={className}>{timeString}</span>;
 }

@@ -77,6 +77,7 @@ export function useVault(assetId: string): UseVaultReturn {
 
     const isInitialLoad = useRef(true);
     const lastVaultHash = useRef<string>("");
+    const vaultRef = useRef<VaultData | null>(null);
 
     // Fetch vault and user data
     const fetchData = useCallback(async () => {
@@ -103,6 +104,14 @@ export function useVault(assetId: string): UseVaultReturn {
             }
 
             const data = await fetchVaultData(connection, config.assetId);
+
+            // Client-side smoothing: If APY is 0 (e.g. fresh roll), use previous valid APY if available
+            if (data && data.apy === 0) {
+                if (vaultRef.current && vaultRef.current.apy > 0) {
+                    data.apy = vaultRef.current.apy;
+                }
+            }
+            vaultRef.current = data;
 
             // Only update if data changed
             const newHash = JSON.stringify(data);
@@ -356,6 +365,12 @@ export function useAllVaults() {
     const [error, setError] = useState<string | null>(null);
     const isInitialLoad = useRef(true);
     const lastDataHash = useRef<string>("");
+    const vaultsRef = useRef<Record<string, VaultData | null>>({});
+
+    // Update ref when vaults state changes so we have access to previous values in fetchData
+    useEffect(() => {
+        vaultsRef.current = vaults;
+    }, [vaults]);
 
     const fetchData = useCallback(async () => {
         try {
@@ -372,6 +387,16 @@ export function useAllVaults() {
             await Promise.all(vaultEntries.map(async ([key, config]) => {
                 try {
                     const data = await fetchVaultData(connection, config.assetId);
+
+                    // Client-side smoothing: If APY is 0 (e.g. fresh roll), use previous valid APY if available
+                    // This prevents the "flash to 0" UX issue
+                    if (data && data.apy === 0) {
+                        const prevData = vaultsRef.current[key];
+                        if (prevData && prevData.apy > 0) {
+                            data.apy = prevData.apy;
+                        }
+                    }
+
                     vaultResults[key] = data;
 
                     if (publicKey) {
