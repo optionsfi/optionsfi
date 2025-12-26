@@ -28,7 +28,7 @@ export function calculateVaultTiming(vault: any, assetId: string): VaultTimingRe
 
     // Fallback durations if 0
     if (minDuration === 0) {
-        minDuration = isDemo ? 180 * 1000 : 604800 * 1000;
+        minDuration = isDemo ? 900 * 1000 : 604800 * 1000;
     }
 
     let epochEndTimestamp = 0;
@@ -37,10 +37,10 @@ export function calculateVaultTiming(vault: any, assetId: string): VaultTimingRe
     if (lastRoll > 0) {
         epochEndTimestamp = lastRoll + minDuration;
     }
-    // 2. Fallback for Demo (3-minute alignments)
+    // 2. Fallback for Demo (15-minute alignments)
     else if (isDemo) {
         const nowSec = Math.floor(now / 1000);
-        const nextMarkSec = nowSec + (180 - (nowSec % 180));
+        const nextMarkSec = nowSec + (900 - (nowSec % 900));
         epochEndTimestamp = nextMarkSec * 1000;
     }
     // 3. Fallback for Prod (6-hour alignments)
@@ -64,8 +64,8 @@ export function calculateVaultTiming(vault: any, assetId: string): VaultTimingRe
         progress = Math.min(100, Math.max(0, (elapsed / minDuration) * 100));
     } else if (isDemo) {
         // Approximate progress for demo fallback
-        const elapsed = 180000 - timeLeft;
-        progress = Math.min(100, Math.max(0, (elapsed / 180000) * 100));
+        const elapsed = 900000 - timeLeft;
+        progress = Math.min(100, Math.max(0, (elapsed / 900000) * 100));
     }
 
     // Format string

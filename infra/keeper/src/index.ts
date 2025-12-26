@@ -365,8 +365,8 @@ async function runEpochRollForVault(assetId: string, preFetchedPrice?: OraclePri
         if (durationSeconds === 0) {
             // Client-side fallback for 0-duration configs
             if (assetId.toLowerCase().includes("demo")) {
-                logger.warn("Duration is 0, using fallback 180s for Demo vault");
-                durationSeconds = 180;
+                logger.warn("Duration is 0, using fallback 900s for Demo vault");
+                durationSeconds = 900;
             } else {
                 logger.warn("Duration is 0, using fallback 7 days for Production vault");
                 durationSeconds = 7 * 24 * 60 * 60;

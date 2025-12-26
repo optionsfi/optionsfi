@@ -6,6 +6,7 @@ import { Loader2, TrendingUp, Wallet, Clock, Vault, Briefcase } from "lucide-rea
 import { useAllVaults } from "../../hooks/useVault";
 import { VAULT_CONFIG, computeTier, getPythFeedId } from "../../lib/vault-config";
 import { useState, useEffect } from "react";
+import { calculateVaultTiming } from "../../lib/vault-timing";
 
 const HERMES_URL = "https://hermes.pyth.network";
 
@@ -98,30 +99,9 @@ export default function V2EarnDashboard() {
         // Compute tier dynamically from APY
         const tier = computeTier(apy, meta.isDemo);
 
-        // Calculate per-vault roll time (Prioritize on-chain data)
-        let rollTime = nextRoll.timeString;
-
-        if (liveData && liveData.lastRollTimestamp > 0 && liveData.minEpochDuration > 0) {
-            const now = Math.floor(Date.now() / 1000);
-            const nextRollTs = liveData.lastRollTimestamp + liveData.minEpochDuration;
-            const remaining = Math.max(0, nextRollTs - now);
-
-            if (remaining < 3600) {
-                const m = Math.floor(remaining / 60);
-                const s = remaining % 60;
-                rollTime = `${m}m ${s}s`;
-            } else {
-                const h = Math.floor(remaining / 3600);
-                const m = Math.floor((remaining % 3600) / 60);
-                rollTime = `${h}h ${m}m`;
-            }
-        } else if (meta.isDemo) {
-            const now = Math.floor(Date.now() / 1000);
-            const remaining = Math.max(0, 900 - (now % 900));
-            const m = Math.floor(remaining / 60);
-            const s = remaining % 60;
-            rollTime = `${m}m ${s}s`;
-        }
+        // Standardized timing logic
+        const timing = calculateVaultTiming(liveData, id);
+        const rollTime = timing.nextRollIn;
 
         return {
             id,
@@ -149,6 +129,16 @@ export default function V2EarnDashboard() {
     const totalPremiumUsdc = Object.values(vaults).reduce((sum, v) => {
         return sum + (v ? Number(v.premiumBalanceUsdc || 0) / 1e6 : 0);
     }, 0);
+
+    // Find the soonest actual vault roll to show in the hero section
+    const soonestRoll = Object.entries(VAULT_CONFIG).reduce((best, [id, _]) => {
+        const timing = calculateVaultTiming(vaults[id], id);
+        if (timing.nextRollTime === 0) return best;
+        if (best === null || timing.nextRollTime < best.nextRollTime) return timing;
+        return best;
+    }, null as any);
+
+    const displayRollTime = soonestRoll ? soonestRoll.nextRollIn : nextRoll.timeString;
 
     return (
         <div className="w-full space-y-4">
@@ -188,7 +178,7 @@ export default function V2EarnDashboard() {
                             <p className="text-sm text-muted-foreground">Next Option Roll</p>
                             <div className="flex items-center gap-1">
                                 <Clock className="w-4 h-4 text-yellow-400" />
-                                <p className="text-2xl font-bold text-yellow-400">{nextRoll.timeString}</p>
+                                <p className="text-2xl font-bold text-yellow-400">{displayRollTime}</p>
                             </div>
                         </div>
                         <div>
@@ -298,105 +288,69 @@ export default function V2EarnDashboard() {
                         </span>
                     </div>
                 </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {[...vaultList]
-                        .sort((a, b) => sortBy === "apy" ? b.apy - a.apy : sortBy === "roll" ? 0 : b.tvlUsd - a.tvlUsd)
-                        .map((vault) => (
+                    {vaultList
+                        .sort((a, b) => {
+                            if (sortBy === "tvl") return b.tvlUsd - a.tvlUsd;
+                            if (sortBy === "apy") return b.apy - a.apy;
+                            return 0; // Roll sort not implemented yet
+                        })
+                        .map(vault => (
                             <Link
                                 key={vault.id}
                                 href={`/v2/earn/${vault.id}`}
-                                className={`group rounded-xl border p-5 transition-all ${vault.isLive
-                                    ? "bg-secondary/30 border-border hover:bg-secondary/50 hover:border-blue-500/30"
-                                    : "bg-secondary/10 border-border/50 opacity-70"
-                                    }`}
+                                className="group relative overflow-hidden rounded-xl border border-border bg-secondary/30 p-5 hover:border-blue-500/30 hover:bg-secondary/50 transition-all flex flex-col justify-between min-h-[180px]"
                             >
-                                <div className="flex justify-between items-start mb-4">
-                                    <div>
-                                        <h3 className="font-semibold text-foreground group-hover:text-blue-400 transition-colors">
-                                            {vault.name}
-                                        </h3>
-                                        <p className="text-sm text-muted-foreground">{vault.strategy}</p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        {vault.isLive ? (
-                                            <span className="flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full bg-green-500/15 text-green-400 border border-green-500/30">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Live
-                                            </span>
-                                        ) : (
-                                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-500/15 text-gray-400 border border-gray-500/30">
-                                                Soon
-                                            </span>
-                                        )}
-                                        <span className={`text-xs px-2 py-1 rounded-full ${vault.tier === "Aggressive"
-                                            ? "bg-red-500/20 text-red-400"
-                                            : vault.tier === "Conservative"
-                                                ? "bg-blue-500/20 text-blue-400"
-                                                : "bg-blue-500/20 text-blue-400"
-                                            }`}>
-                                            {vault.tier === "Conservative" ? "Low Volatility" : vault.tier}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4 mb-4">
-                                    <div>
-                                        <p className="text-xs text-muted-foreground">APY</p>
-                                        <p className="text-lg font-semibold text-green-400">{formatAPY(vault.apy)}</p>
-                                        {vault.isDemo && <p className="text-[9px] text-gray-500">Simulated</p>}
-                                        <p className="text-[9px] text-gray-500 mt-0.5">≈${(vault.tvlUsd * vault.apy / 100 / 52).toFixed(2)}/wk</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-muted-foreground">TVL</p>
-                                        <p className="text-lg font-semibold text-foreground">{formatCurrency(vault.tvlUsd)}</p>
-                                    </div>
-                                </div>
-
-                                {/* Utilization removed - now using simpler UI */}
-
-                                <div className="mt-4 pt-4 border-t border-border flex justify-between items-center">
-                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                        <Clock className="w-3 h-3" />
-                                        Next Option Roll
-                                    </span>
-                                    {(() => {
-                                        const totalMins = parseInt(vault.rollTime) || 0;
-                                        const isUrgent = totalMins < 60; // <1h
-                                        const isSoon = totalMins < 360; // <6h
-                                        return (
-                                            <span className={`text-sm font-medium ${isUrgent ? "text-emerald-400 animate-pulse" :
-                                                isSoon ? "text-yellow-400" : "text-foreground"
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex items-center gap-3">
+                                            <div className="relative">
+                                                <img src={vault.logo} alt={vault.symbol} className="w-10 h-10 rounded-full border border-border" />
+                                                {vault.isLive && (
+                                                    <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-secondary flex items-center justify-center">
+                                                        <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold text-foreground text-lg leading-tight">{vault.name}</h3>
+                                                <p className="text-xs text-muted-foreground">{vault.strategy}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-1">
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${vault.isDemo ? "bg-gray-800 text-gray-400" : "bg-blue-500/10 text-blue-400 border border-blue-500/20"
                                                 }`}>
-                                                {vault.isLive ? vault.rollTime : "Pending"}
+                                                {vault.tier}
                                             </span>
-                                        );
-                                    })()}
+                                            {vault.isDemo && <span className="text-[9px] text-gray-500">Devnet Only</span>}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4 py-2 border-y border-border/50">
+                                        <div>
+                                            <p className="text-[10px] text-muted-foreground uppercase tracking-tight">APY</p>
+                                            <p className="text-xl font-bold text-green-400">{formatAPY(vault.apy)}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] text-muted-foreground uppercase tracking-tight">TVL</p>
+                                            <p className="text-xl font-bold text-foreground">{formatCurrency(vault.tvlUsd)}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-between items-center mt-4">
+                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                        <Clock className="w-3.5 h-3.5 text-yellow-400/80" />
+                                        <span>Next Option Roll</span>
+                                        <span className="text-foreground font-medium ml-1">{vault.rollTime}</span>
+                                    </div>
+                                    <TrendingUp className="w-4 h-4 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </div>
                             </Link>
                         ))}
                 </div>
             </section>
-
-            {/* Latest Updates */}
-            {/* <section className="space-y-4">
-                <h2 className="text-xl font-semibold text-foreground">Latest Updates</h2>
-                <div className="rounded-xl border border-border bg-secondary/30 divide-y divide-border">
-                    <div className="p-4 flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full bg-green-500" />
-                        <span className="text-sm text-muted-foreground">All V2 vaults (NVDAx, TSLAx, SPYx...) initialized on devnet</span>
-                        <span className="ml-auto text-xs text-muted-foreground">Just now</span>
-                    </div>
-                    <div className="p-4 flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full bg-blue-500" />
-                        <span className="text-sm text-muted-foreground">Oracle initialized with Pyth integration</span>
-                        <span className="ml-auto text-xs text-muted-foreground">5m ago</span>
-                    </div>
-                    <div className="p-4 flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full bg-green-500" />
-                        <span className="text-sm text-muted-foreground">Oracle status: Healthy</span>
-                        <span className="ml-auto text-xs text-muted-foreground">10m ago</span>
-                    </div>
-                </div>
-            </section> */}
         </div>
     );
 }
