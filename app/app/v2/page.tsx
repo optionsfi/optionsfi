@@ -9,6 +9,8 @@ import { useState, useEffect } from "react";
 
 const HERMES_URL = "https://hermes.pyth.network";
 
+type SortOption = "tvl" | "apy" | "roll";
+
 function formatCurrency(value: number): string {
     return new Intl.NumberFormat("en-US", {
         style: "currency",
@@ -48,6 +50,7 @@ export default function V2EarnDashboard() {
     const { vaults, userBalances, loading } = useAllVaults();
     const [nvdaPrice, setNvdaPrice] = useState<number>(0);
     const [nextRoll, setNextRoll] = useState(getNextRollTime());
+    const [sortBy, setSortBy] = useState<SortOption>("tvl");
 
     // Fetch NVDA price for TVL calculation
     useEffect(() => {
@@ -144,8 +147,8 @@ export default function V2EarnDashboard() {
                         Deposit xStocks. Vault writes covered calls. Premiums settle automatically.
                     </p>
 
-                    {/* Stats Row */}
-                    <div className="flex gap-8 mb-6">
+                    {/* Stats Row - Reordered: TVL, Earned, APY, Roll, Vaults */}
+                    <div className="flex gap-8 mb-4">
                         <div>
                             <p className="text-sm text-muted-foreground">Total TVL</p>
                             <div className="flex items-center gap-2">
@@ -154,28 +157,33 @@ export default function V2EarnDashboard() {
                             </div>
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">Avg APY</p>
-                            <p className="text-2xl font-bold text-green-400">{formatAPY(avgAPY)}</p>
+                            <p className="text-sm text-muted-foreground">Premium Earned (USDC)</p>
+                            <div className="flex items-center gap-1">
+                                <p className="text-2xl font-bold text-emerald-400">${totalPremiumUsdc.toFixed(2)}</p>
+                            </div>
+                        </div>
+                        <div className="group relative">
+                            <p className="text-sm text-muted-foreground flex items-center gap-1">Avg APY <span className="text-[9px] text-gray-500 cursor-help">ⓘ</span></p>
+                            <p className="text-2xl font-medium text-green-400">{formatAPY(avgAPY)}</p>
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 border border-gray-700 rounded text-[10px] text-gray-300 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                Annualized from recent vault performance. Variable.
+                            </div>
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">Vaults</p>
-                            <p className="text-2xl font-bold text-foreground">{liveVaultCount}</p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Next Roll</p>
+                            <p className="text-sm text-muted-foreground">Next Option Roll</p>
                             <div className="flex items-center gap-1">
                                 <Clock className="w-4 h-4 text-yellow-400" />
                                 <p className="text-2xl font-bold text-yellow-400">{nextRoll.timeString}</p>
                             </div>
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">USDC Earned</p>
-                            <div className="flex items-center gap-1">
-                                <span className="text-emerald-400">$</span>
-                                <p className="text-2xl font-bold text-emerald-400">{totalPremiumUsdc.toFixed(2)}</p>
-                            </div>
+                            <p className="text-sm text-muted-foreground">Vaults</p>
+                            <p className="text-2xl font-bold text-foreground">{liveVaultCount}</p>
                         </div>
                     </div>
+
+                    {/* Trust anchor */}
+                    <p className="text-xs text-gray-500 mb-5">Fully collateralized. Cash-settled. No liquidations.</p>
 
                     <div className="flex gap-3">
                         <Link
@@ -186,9 +194,12 @@ export default function V2EarnDashboard() {
                         </Link>
                         <Link
                             href="/v2/oracle"
-                            className="px-6 py-3 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground font-medium border border-border transition-colors"
+                            className="px-6 py-3 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground font-medium border border-border transition-colors group relative"
                         >
-                            View Oracle
+                            Pricing Oracle
+                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 border border-gray-700 rounded text-[10px] text-gray-300 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                Underlying price & settlement source
+                            </span>
                         </Link>
                     </div>
                 </div>
@@ -233,7 +244,10 @@ export default function V2EarnDashboard() {
                                         </div>
                                         <div className="text-right">
                                             <p className="font-medium text-foreground">{formatCurrency(vault.userValueUsd)}</p>
-                                            <p className="text-xs text-green-400">{formatAPY(vault.apy)} APY</p>
+                                            <div className="flex items-center justify-end gap-1.5">
+                                                {vault.isDemo && <span className="text-[9px] px-1 py-0.5 bg-gray-700/50 text-gray-400 rounded">Simulated</span>}
+                                                <p className="text-xs text-green-400">{formatAPY(vault.apy)} APY</p>
+                                            </div>
                                         </div>
                                     </Link>
                                 ))}
@@ -250,71 +264,100 @@ export default function V2EarnDashboard() {
                         <Vault className="w-5 h-5" />
                         All Vaults
                     </h2>
-                    <span className="text-sm text-muted-foreground flex items-center gap-2">
-                        {loading && <Loader2 className="w-3 h-3 animate-spin" />}
-                        {liveVaultCount} live on Devnet
-                    </span>
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <span>Sort:</span>
+                            {(["tvl", "apy", "roll"] as SortOption[]).map(opt => (
+                                <button
+                                    key={opt}
+                                    onClick={() => setSortBy(opt)}
+                                    className={`px-2 py-0.5 rounded ${sortBy === opt ? "bg-gray-700 text-white" : "text-gray-500 hover:text-gray-300"}`}
+                                >
+                                    {opt === "tvl" ? "TVL" : opt === "apy" ? "APY" : "Roll"}
+                                </button>
+                            ))}
+                        </div>
+                        <span className="text-sm text-muted-foreground flex items-center gap-2">
+                            {loading && <Loader2 className="w-3 h-3 animate-spin" />}
+                            {liveVaultCount} live on Devnet
+                        </span>
+                    </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {vaultList.map((vault) => (
-                        <Link
-                            key={vault.id}
-                            href={`/v2/earn/${vault.id}`}
-                            className={`group rounded-xl border p-5 transition-all ${vault.isLive
-                                ? "bg-secondary/30 border-border hover:bg-secondary/50 hover:border-blue-500/30"
-                                : "bg-secondary/10 border-border/50 opacity-70"
-                                }`}
-                        >
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <h3 className="font-semibold text-foreground group-hover:text-blue-400 transition-colors">
-                                        {vault.name}
-                                    </h3>
-                                    <p className="text-sm text-muted-foreground">{vault.strategy}</p>
+                    {[...vaultList]
+                        .sort((a, b) => sortBy === "apy" ? b.apy - a.apy : sortBy === "roll" ? 0 : b.tvlUsd - a.tvlUsd)
+                        .map((vault) => (
+                            <Link
+                                key={vault.id}
+                                href={`/v2/earn/${vault.id}`}
+                                className={`group rounded-xl border p-5 transition-all ${vault.isLive
+                                    ? "bg-secondary/30 border-border hover:bg-secondary/50 hover:border-blue-500/30"
+                                    : "bg-secondary/10 border-border/50 opacity-70"
+                                    }`}
+                            >
+                                <div className="flex justify-between items-start mb-4">
+                                    <div>
+                                        <h3 className="font-semibold text-foreground group-hover:text-blue-400 transition-colors">
+                                            {vault.name}
+                                        </h3>
+                                        <p className="text-sm text-muted-foreground">{vault.strategy}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {vault.isLive ? (
+                                            <span className="flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full bg-green-500/15 text-green-400 border border-green-500/30">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Live
+                                            </span>
+                                        ) : (
+                                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-500/15 text-gray-400 border border-gray-500/30">
+                                                Soon
+                                            </span>
+                                        )}
+                                        <span className={`text-xs px-2 py-1 rounded-full ${vault.tier === "Aggressive"
+                                            ? "bg-red-500/20 text-red-400"
+                                            : vault.tier === "Conservative"
+                                                ? "bg-blue-500/20 text-blue-400"
+                                                : "bg-blue-500/20 text-blue-400"
+                                            }`}>
+                                            {vault.tier === "Conservative" ? "Low Volatility" : vault.tier}
+                                        </span>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    {vault.isLive ? (
-                                        <span className="flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full bg-green-500/15 text-green-400 border border-green-500/30">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Live
-                                        </span>
-                                    ) : (
-                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-500/15 text-gray-400 border border-gray-500/30">
-                                            Soon
-                                        </span>
-                                    )}
-                                    <span className={`text-xs px-2 py-1 rounded-full ${vault.tier === "Aggressive"
-                                        ? "bg-red-500/20 text-red-400"
-                                        : vault.tier === "Conservative"
-                                            ? "bg-green-500/20 text-green-400"
-                                            : "bg-blue-500/20 text-blue-400"
-                                        }`}>
-                                        {vault.tier}
+
+                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <p className="text-xs text-muted-foreground">APY</p>
+                                        <p className="text-lg font-semibold text-green-400">{formatAPY(vault.apy)}</p>
+                                        {vault.isDemo && <p className="text-[9px] text-gray-500">Simulated</p>}
+                                        <p className="text-[9px] text-gray-500 mt-0.5">≈${(vault.tvlUsd * vault.apy / 100 / 52).toFixed(2)}/wk</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-muted-foreground">TVL</p>
+                                        <p className="text-lg font-semibold text-foreground">{formatCurrency(vault.tvlUsd)}</p>
+                                    </div>
+                                </div>
+
+                                {/* Utilization removed - now using simpler UI */}
+
+                                <div className="mt-4 pt-4 border-t border-border flex justify-between items-center">
+                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        Next Option Roll
                                     </span>
+                                    {(() => {
+                                        const totalMins = parseInt(vault.rollTime) || 0;
+                                        const isUrgent = totalMins < 60; // <1h
+                                        const isSoon = totalMins < 360; // <6h
+                                        return (
+                                            <span className={`text-sm font-medium ${isUrgent ? "text-emerald-400 animate-pulse" :
+                                                isSoon ? "text-yellow-400" : "text-foreground"
+                                                }`}>
+                                                {vault.isLive ? vault.rollTime : "Pending"}
+                                            </span>
+                                        );
+                                    })()}
                                 </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <p className="text-xs text-muted-foreground">APY</p>
-                                    <p className="text-lg font-semibold text-green-400">{formatAPY(vault.apy)}</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-muted-foreground">TVL</p>
-                                    <p className="text-lg font-semibold text-foreground">{formatCurrency(vault.tvlUsd)}</p>
-                                </div>
-                            </div>
-
-                            {/* Utilization removed - now using simpler UI */}
-
-                            <div className="mt-4 pt-4 border-t border-border flex justify-between items-center">
-                                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                    <Clock className="w-3 h-3" />
-                                    Next Roll
-                                </span>
-                                <span className="text-sm font-medium text-foreground">{vault.isLive ? vault.rollTime : "Pending"}</span>
-                            </div>
-                        </Link>
-                    ))}
+                            </Link>
+                        ))}
                 </div>
             </section>
 
