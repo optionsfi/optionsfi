@@ -20,6 +20,12 @@ const app = express();
 app.use(express.json());
 
 // ============================================================================
+// Environment Configuration
+// ============================================================================
+
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
+// ============================================================================
 // SECURITY FIX L-2: CORS Configuration
 // ============================================================================
 
@@ -90,7 +96,6 @@ const server = http.createServer(app);
 
 // SECURITY: No default API keys in production
 const MM_API_KEYS_ENV = process.env.MM_API_KEYS;
-const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 if (IS_PRODUCTION && !MM_API_KEYS_ENV) {
     console.error("FATAL: MM_API_KEYS must be set in production mode");
