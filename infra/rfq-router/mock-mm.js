@@ -3,6 +3,10 @@
  * 
  * Connects to RFQ Router and provides quotes for testing.
  * On fill, transfers USDC premium to vault's premium account.
+ * 
+ * Supports multi-MM mode with configurable pricing strategies:
+ * - PREMIUM_MULTIPLIER: Adjust quote aggressiveness (default 1.0)
+ * - RESPONSE_DELAY: Base response time in ms (default 500)
  */
 
 const WebSocket = require("ws");
@@ -16,6 +20,10 @@ const ROUTER_WS_URL = process.env.ROUTER_WS_URL || "ws://localhost:3006";
 const MAKER_ID = process.env.MAKER_ID || "mock-mm-usdc";
 const MM_API_KEY = process.env.MM_API_KEY || "demo-mm-key-1"; // Must match RFQ router's MM_API_KEYS
 const RPC_URL = process.env.RPC_URL || "https://api.devnet.solana.com";
+
+// Competitive pricing configuration
+const PREMIUM_MULTIPLIER = parseFloat(process.env.PREMIUM_MULTIPLIER || "1.0");
+const RESPONSE_DELAY = parseInt(process.env.RESPONSE_DELAY || "500");
 
 // USDC Mint on devnet (Mock USDC)
 const USDC_MINT = new PublicKey("5z8s3k7mkmH1DKFPvjkVd8PxapEeYaPJjqQTJeUEN1i4");
@@ -197,18 +205,23 @@ function handleMessage(msg) {
         // Derive spot from strike (Demo is 1% OTM, Regular is 10% OTM)
         const isDemo = msg.underlying.toLowerCase().includes("demo");
         const spotPrice = isDemo ? (msg.strike / 1.01) : (msg.strike / 1.10);
+
         // Premium in USD = size_tokens * price * percent
-        const premiumUsd = msg.size * spotPrice * premiumPercent;
+        // Apply PREMIUM_MULTIPLIER for competitive pricing (higher = more aggressive quotes)
+        const basePremiumUsd = msg.size * spotPrice * premiumPercent;
+        const adjustedPremiumUsd = basePremiumUsd * PREMIUM_MULTIPLIER;
+
         // Convert to USDC base units (6 decimals) and ensure it's at least 1 (smallest unit)
-        const premium = Math.max(1, Math.floor(premiumUsd * 1e6));
+        const premium = Math.max(1, Math.floor(adjustedPremiumUsd * 1e6));
 
-        console.log(`📊 Premium calc: ${msg.size} tokens × $${spotPrice.toFixed(2)} × ${(premiumPercent * 100).toFixed(6)}% = $${premiumUsd.toFixed(6)} (${premium} base units)`);
-        console.log(`   Duration Score: ${durationMinutes.toFixed(1)} mins (Scale: ${timeScale.toFixed(4)}x)`);
+        console.log(`📊 Premium calc: ${msg.size} tokens × $${spotPrice.toFixed(2)} × ${(premiumPercent * 100).toFixed(4)}%`);
+        console.log(`   Base: $${basePremiumUsd.toFixed(4)} × ${PREMIUM_MULTIPLIER.toFixed(2)}x = $${adjustedPremiumUsd.toFixed(4)} (${premium} µUSDC)`);
 
-        // Simulate thinking time (500ms - 1.5s)
+        // Use configurable response delay with small random variation
+        const delay = RESPONSE_DELAY + Math.random() * 500;
         setTimeout(() => {
             sendQuote(msg.rfqId, premium);
-        }, 500 + Math.random() * 1000);
+        }, delay);
     }
 
     if (msg.type === "fill") {
