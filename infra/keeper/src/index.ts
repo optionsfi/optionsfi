@@ -56,7 +56,7 @@ const config = {
     walletPath: WALLET_PATH,
     walletPrivateKey: process.env.WALLET_PRIVATE_KEY, // Base58 encoded private key (optional)
     // Support multiple vaults via comma-separated ASSET_IDS
-    assetIds: (process.env.ASSET_IDS || process.env.ASSET_ID || "DemoNVDAx6,NVDAx").split(",").map(s => s.trim()),
+    assetIds: (process.env.ASSET_IDS || process.env.ASSET_ID || "DemoNVDAx,NVDAx").split(",").map(s => s.trim()),
     ticker: process.env.TICKER || "NVDA", // Yahoo Finance ticker for volatility
     cronSchedule: process.env.CRON_SCHEDULE || "0 */6 * * *", // Every 6 hours
     epochDurationDays: parseInt(process.env.EPOCH_DURATION_DAYS || "7"),

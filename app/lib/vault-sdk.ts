@@ -38,9 +38,9 @@ export const VAULTS: Record<string, VaultConfig> = {
         assetId: "NVDAx",
         underlyingMint: NVDAX_MINT,
     },
-    demonvdax6: {
-        symbol: "DemoNVDAx6",
-        assetId: "DemoNVDAx6",
+    demonvdax: {
+        symbol: "DemoNVDAx",
+        assetId: "DemoNVDAx",
         underlyingMint: NVDAX_MINT,
     },
 };

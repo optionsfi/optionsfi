@@ -24,7 +24,7 @@ const VAULT_METADATA: Record<string, {
     maxCap: number;
 }> = {
     nvdax: { name: "NVDAx Vault", symbol: "NVDAx", logo: "/nvidiax_logo.png", accentColor: "#76B900", tier: "Normal", strikeOtm: 10, maxCap: 10 },
-    demonvdax6: { name: "Demo NVDAx", symbol: "NVDAx", logo: "/nvidiax_logo.png", accentColor: "#76B900", tier: "Demo", strikeOtm: 10, maxCap: 10 },
+    demonvdax: { name: "Demo NVDAx", symbol: "NVDAx", logo: "/nvidiax_logo.png", accentColor: "#76B900", tier: "Demo", strikeOtm: 10, maxCap: 10 },
 };
 
 type ChartMode = "total_return" | "value" | "premium";

@@ -21,10 +21,10 @@ export interface VaultMetadata {
 
 export const VAULT_CONFIG: Record<string, VaultMetadata> = {
     // Demo vault with virtual offset (first depositor protection - no token loss)
-    demonvdax6: {
+    demonvdax: {
         name: "Demo NVDAx",
         symbol: "NVDAx",
-        assetId: "DemoNVDAx6",
+        assetId: "DemoNVDAx",
         strategy: "Demo Vault",
         logo: "/nvidiax_logo.png",
         accentColor: "#76B900",

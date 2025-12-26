@@ -17,14 +17,14 @@ const RPC_URL = process.env.RPC_URL || "https://api.devnet.solana.com";
 const ACTIVE_MINTS = new Set([
     "G5VWnnWRxVvuTqRCEQNNGEdRmS42hMTyh8DAN9MHecLn",  // NVDAx (underlying)
     "5z8s3k7mkmH1DKFPvjkVd8PxapEeYaPJjqQTJeUEN1i4",  // USDC (premium)
-    "4yLeF5RVrpBST6Y3VDz7XQT3bGFACXtzMkANRpeFJduw",  // DemoNVDAx6 share mint
+    "4yLeF5RVrpBST6Y3VDz7XQT3bGFACXtzMkANRpeFJduw",  // DemoNVDAx share mint
 ]);
 
 // Known mint names for display
 const MINT_NAMES: Record<string, string> = {
     "G5VWnnWRxVvuTqRCEQNNGEdRmS42hMTyh8DAN9MHecLn": "NVDAx (underlying)",
     "5z8s3k7mkmH1DKFPvjkVd8PxapEeYaPJjqQTJeUEN1i4": "USDC (premium)",
-    "4yLeF5RVrpBST6Y3VDz7XQT3bGFACXtzMkANRpeFJduw": "vDemoNVDAx6 (shares)",
+    "4yLeF5RVrpBST6Y3VDz7XQT3bGFACXtzMkANRpeFJduw": "vDemoNVDAx (shares)",
     "BoAgayd7WrWsLxWz9HDJx9oYf33XfaXoHseMMezz7mHU": "OLD vDemoNVDAx5 (shares) - ORPHANED",
 };
 

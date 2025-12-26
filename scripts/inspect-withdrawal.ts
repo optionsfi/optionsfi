@@ -41,7 +41,7 @@ async function main() {
     const provider = new AnchorProvider(connection, dummyWallet as any, {});
     const program = new Program(idl, provider);
 
-    const vaults = ["NVDAx", "DemoNVDAx6"];
+    const vaults = ["NVDAx", "DemoNVDAx"];
 
     for (const assetId of vaults) {
         console.log(`\nChecking Vault: ${assetId}...`);

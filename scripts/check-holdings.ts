@@ -28,7 +28,7 @@ const KNOWN_MINTS: Record<string, string> = {
 };
 
 // Vaults to check
-const VAULT_ASSET_IDS = ["NVDAx", "DemoNVDAx6"];
+const VAULT_ASSET_IDS = ["NVDAx", "DemoNVDAx"];
 
 interface TokenHolding {
     mint: string;

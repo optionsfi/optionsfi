@@ -50,7 +50,7 @@ async function checkVault(name: string) {
 }
 
 async function main() {
-    await checkVault("DemoNVDAx6");
+    await checkVault("DemoNVDAx");
     await checkVault("NVDAx");
 }
 
