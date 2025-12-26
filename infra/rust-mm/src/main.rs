@@ -275,12 +275,32 @@ async fn handle_fill(
 }
 
 fn load_wallet() -> Option<Keypair> {
-    let key_str = env::var("WALLET_PRIVATE_KEY").ok()?;
+    let key_str = match env::var("WALLET_PRIVATE_KEY") {
+        Ok(v) => v,
+        Err(_) => {
+            error!("WALLET_PRIVATE_KEY env var is NOT set!");
+            return None;
+        }
+    };
+
     if let Ok(vec) = serde_json::from_str::<Vec<u8>>(&key_str) {
-        return Keypair::from_bytes(&vec).ok();
+        if let Ok(kp) = Keypair::from_bytes(&vec) {
+            return Some(kp);
+        } else {
+            warn!("Parsed JSON key but Keypair::from_bytes failed (wrong length?)");
+        }
     }
-    if let Ok(key_bytes) = bs58::decode(&key_str).into_vec() {
-        return Keypair::from_bytes(&key_bytes).ok();
+
+    if let Ok(key_bytes) = bs58::decode(key_str.trim()).into_vec() {
+        if let Ok(kp) = Keypair::from_bytes(&key_bytes) {
+            return Some(kp);
+        } else {
+            warn!("Decoded Base58 key but Keypair::from_bytes failed (wrong length?)");
+        }
+    } else {
+        warn!("Failed to decode WALLET_PRIVATE_KEY as Base58");
     }
+
+    error!("WALLET_PRIVATE_KEY format invalid. Expected JSON array [1,2,3...] OR Base58 string.");
     None
 }
