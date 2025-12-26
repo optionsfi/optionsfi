@@ -102,7 +102,7 @@ export default function V2EarnDashboard() {
         let rollTime = nextRoll.timeString;
         if (meta.isDemo) {
             const now = Math.floor(Date.now() / 1000);
-            const remaining = Math.max(0, 180 - (now % 180));
+            const remaining = Math.max(0, 900 - (now % 900));
             const m = Math.floor(remaining / 60);
             const s = remaining % 60;
             rollTime = `${m}m ${s}s`;
