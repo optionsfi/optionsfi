@@ -267,6 +267,7 @@ async function fetchPricesInBatch(assetIds: string[]): Promise<Map<string, Oracl
 
 async function runEpochRollForVault(assetId: string, preFetchedPrice?: OraclePrice): Promise<boolean> {
     logger.info("Processing vault", { assetId });
+    logEvent("epoch_roll_triggered", { vault: assetId });
 
     try {
         // Step 1: Fetch real vault data
@@ -495,6 +496,14 @@ async function runEpochRollForVault(assetId: string, preFetchedPrice?: OraclePri
             stats.epochPremiumEarned = stats.epochPremiumEarned + premiumBaseUnits;
         }
 
+        logEvent("epoch_roll_completed", {
+            vault: assetId,
+            notional: notionalTokens.toFixed(2),
+            premium: actualPremium.toFixed(2),
+            strike: strikePrice.toFixed(2),
+            rfq: rfqFilled ? "FILLED" : "BS_FALLBACK"
+        });
+
         logger.info("========================================");
         logger.info("Epoch roll completed successfully", {
             notional: notionalTokens.toFixed(2),
@@ -626,6 +635,7 @@ async function checkVaultLifecycle(): Promise<void> {
 async function runSettlement(targetAssetId?: string): Promise<{ success: boolean; message: string }> {
     const assetId = targetAssetId || config.assetIds[0];
     logger.info(`Running settlement for ${assetId}...`);
+    logEvent("settlement_triggered", { vault: assetId });
 
     try {
         // Fetch fresh vault data from on-chain to be stateless
@@ -709,6 +719,12 @@ async function runSettlement(targetAssetId?: string): Promise<{ success: boolean
 
             const tx = await state.onchainClient.advanceEpoch(assetId, netPremiumUsdc);
             logger.info("Epoch advanced", { tx, assetId, premiumCredited: (Number(netPremiumUsdc) / 1e6).toFixed(4) });
+
+            logEvent("settlement_completed", {
+                vault: assetId,
+                netGain: (Number(epochPremiumEarned - payoffAmount) / 1e6).toFixed(4),
+                type: settlementType
+            });
         }
 
         const netGain = Number(epochPremiumEarned - payoffAmount) / 1e6;
