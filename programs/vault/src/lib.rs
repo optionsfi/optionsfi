@@ -68,6 +68,9 @@ pub mod vault {
             // But total_assets is 0, so we use 1:1 initially
             amount
         } else {
+            // SECURITY FIX M-2: Explicit division by zero check
+            require!(vault.total_assets > 0, VaultError::DivisionByZero);
+            
             // shares = amount * effective_shares / total_assets
             (amount as u128)
                 .checked_mul(effective_shares as u128)
@@ -206,6 +209,9 @@ pub mod vault {
         // Calculate underlying amount to return using effective shares
         // effective_shares = total_shares + virtual_offset
         let effective_shares = vault.total_shares.checked_add(vault.virtual_offset).ok_or(VaultError::Overflow)?;
+        
+        // SECURITY FIX M-2: Explicit division by zero check
+        require!(effective_shares > 0, VaultError::DivisionByZero);
         
         let amount = (shares as u128)
             .checked_mul(vault.total_assets as u128)
@@ -610,21 +616,103 @@ pub mod vault {
     pub fn set_pause(ctx: Context<SetPause>, paused: bool) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
         vault.is_paused = paused;
+        
+        emit!(VaultPausedEvent {
+            vault: vault.key(),
+            paused,
+            timestamp: Clock::get()?.unix_timestamp,
+        });
+        
         Ok(())
     }
 
-    /// Set minimum epoch duration (authority only)
-    pub fn set_min_epoch_duration(ctx: Context<SetParam>, duration: i64) -> Result<()> {
+    /// SECURITY FIX M-3: Queue a parameter change with timelock
+    /// Changes take effect after TIMELOCK_DURATION (24 hours)
+    pub fn queue_param_change(
+        ctx: Context<SetParam>,
+        new_min_epoch_duration: Option<i64>,
+        new_utilization_cap_bps: Option<u16>,
+    ) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
-        vault.min_epoch_duration = duration;
+        let clock = Clock::get()?;
+        
+        // Store pending changes
+        if let Some(duration) = new_min_epoch_duration {
+            vault.pending_min_epoch_duration = duration;
+        }
+        if let Some(cap) = new_utilization_cap_bps {
+            require!(cap <= 10000, VaultError::InvalidParameter); // Max 100%
+            vault.pending_utilization_cap = cap;
+        }
+        
+        // Set execution time (24 hours from now)
+        const TIMELOCK_DURATION: i64 = 86400; // 24 hours
+        vault.param_change_unlock_time = clock.unix_timestamp + TIMELOCK_DURATION;
+        
+        emit!(ParamChangeQueuedEvent {
+            vault: vault.key(),
+            new_min_epoch_duration,
+            new_utilization_cap_bps,
+            unlock_time: vault.param_change_unlock_time,
+        });
+        
         Ok(())
     }
 
-    /// Set utilization cap (authority only)
-    pub fn set_utilization_cap(ctx: Context<SetParam>, cap_bps: u16) -> Result<()> {
+    /// SECURITY FIX M-3: Execute queued parameter changes after timelock
+    pub fn execute_param_change(ctx: Context<SetParam>) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
-        vault.utilization_cap_bps = cap_bps;
+        let clock = Clock::get()?;
+        
+        // Check timelock has passed
+        require!(
+            vault.param_change_unlock_time > 0 && clock.unix_timestamp >= vault.param_change_unlock_time,
+            VaultError::TimelockNotExpired
+        );
+        
+        // Apply pending changes
+        if vault.pending_min_epoch_duration > 0 {
+            vault.min_epoch_duration = vault.pending_min_epoch_duration;
+        }
+        if vault.pending_utilization_cap > 0 {
+            vault.utilization_cap_bps = vault.pending_utilization_cap;
+        }
+        
+        emit!(ParamChangeExecutedEvent {
+            vault: vault.key(),
+            new_min_epoch_duration: vault.min_epoch_duration,
+            new_utilization_cap_bps: vault.utilization_cap_bps,
+        });
+        
+        // Reset pending state
+        vault.pending_min_epoch_duration = 0;
+        vault.pending_utilization_cap = 0;
+        vault.param_change_unlock_time = 0;
+        
         Ok(())
+    }
+
+    /// Cancel a queued parameter change
+    pub fn cancel_param_change(ctx: Context<SetParam>) -> Result<()> {
+        let vault = &mut ctx.accounts.vault;
+        
+        vault.pending_min_epoch_duration = 0;
+        vault.pending_utilization_cap = 0;
+        vault.param_change_unlock_time = 0;
+        
+        Ok(())
+    }
+
+    /// DEPRECATED: Direct parameter changes now require timelock
+    /// Kept for backwards compatibility but will fail
+    pub fn set_min_epoch_duration(_ctx: Context<SetParam>, _duration: i64) -> Result<()> {
+        Err(VaultError::UseTimelockForParamChange.into())
+    }
+
+    /// DEPRECATED: Direct parameter changes now require timelock
+    /// Kept for backwards compatibility but will fail
+    pub fn set_utilization_cap(_ctx: Context<SetParam>, _cap_bps: u16) -> Result<()> {
+        Err(VaultError::UseTimelockForParamChange.into())
     }
 
     /// Close a vault and recover rent (authority only)
@@ -706,6 +794,10 @@ pub struct Vault {
     pub premium_balance_usdc: u64,
     /// SECURITY: Emergency pause flag
     pub is_paused: bool,
+    /// SECURITY FIX M-3: Timelock for parameter changes
+    pub pending_min_epoch_duration: i64,
+    pub pending_utilization_cap: u16,
+    pub param_change_unlock_time: i64,
     pub bump: u8,
 }
 
@@ -737,8 +829,9 @@ pub struct InitializeVault<'info> {
         init,
         payer = authority,
         // Space: 8 (discriminator) + 32 (authority) + 68 (asset_id string max) 
-        //        + 32*6 (mints and accounts) + 8*8 (u64 fields incl virtual_offset + premium_balance_usdc) + 2 + 8 + 4 + 1 (is_paused) + 1 (bump)
-        space = 8 + 32 + 68 + 32 + 32 + 32 + 32 + 32 + 32 + 8 + 8 + 8 + 8 + 2 + 8 + 8 + 8 + 8 + 4 + 8 + 1 + 1,
+        //        + 32*6 (mints and accounts) + 8*8 (u64 fields) + 2 + 8 + 4 + 1 (is_paused)
+        //        + 8 (pending_min_epoch_duration) + 2 (pending_utilization_cap) + 8 (param_change_unlock_time) + 1 (bump)
+        space = 8 + 32 + 68 + 32 + 32 + 32 + 32 + 32 + 32 + 8 + 8 + 8 + 8 + 2 + 8 + 8 + 8 + 8 + 4 + 8 + 1 + 8 + 2 + 8 + 1,
         seeds = [b"vault", asset_id.as_bytes()],
         bump
     )]
@@ -1226,6 +1319,28 @@ pub struct SettlementPaidEvent {
     pub epoch: u64,
 }
 
+#[event]
+pub struct VaultPausedEvent {
+    pub vault: Pubkey,
+    pub paused: bool,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct ParamChangeQueuedEvent {
+    pub vault: Pubkey,
+    pub new_min_epoch_duration: Option<i64>,
+    pub new_utilization_cap_bps: Option<u16>,
+    pub unlock_time: i64,
+}
+
+#[event]
+pub struct ParamChangeExecutedEvent {
+    pub vault: Pubkey,
+    pub new_min_epoch_duration: i64,
+    pub new_utilization_cap_bps: u16,
+}
+
 // ============================================================================
 // Errors
 // ============================================================================
@@ -1272,4 +1387,12 @@ pub enum VaultError {
     InvalidVaultPda,
     #[msg("Withdrawal amount below minimum expected (slippage protection)")]
     SlippageExceeded,
+    #[msg("Division by zero")]
+    DivisionByZero,
+    #[msg("Timelock has not expired yet")]
+    TimelockNotExpired,
+    #[msg("Direct param changes deprecated - use queue_param_change")]
+    UseTimelockForParamChange,
+    #[msg("Invalid parameter value")]
+    InvalidParameter,
 }

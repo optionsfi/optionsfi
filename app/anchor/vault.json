@@ -147,6 +147,55 @@
       ]
     },
     {
+      "name": "cancel_param_change",
+      "docs": [
+        "Cancel a queued parameter change"
+      ],
+      "discriminator": [
+        150,
+        147,
+        92,
+        108,
+        72,
+        160,
+        224,
+        55
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.asset_id",
+                "account": "Vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "vault"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "close_vault",
       "docs": [
         "Close a vault and recover rent (authority only)",
@@ -436,6 +485,55 @@
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "execute_param_change",
+      "docs": [
+        "SECURITY FIX M-3: Execute queued parameter changes after timelock"
+      ],
+      "discriminator": [
+        162,
+        166,
+        56,
+        243,
+        168,
+        135,
+        66,
+        175
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.asset_id",
+                "account": "Vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "vault"
+          ]
+        }
+      ],
+      "args": []
     },
     {
       "name": "force_close_vault",
@@ -959,6 +1057,69 @@
       ]
     },
     {
+      "name": "queue_param_change",
+      "docs": [
+        "SECURITY FIX M-3: Queue a parameter change with timelock",
+        "Changes take effect after TIMELOCK_DURATION (24 hours)"
+      ],
+      "discriminator": [
+        140,
+        242,
+        124,
+        63,
+        143,
+        237,
+        195,
+        231
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.asset_id",
+                "account": "Vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "vault"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "new_min_epoch_duration",
+          "type": {
+            "option": "i64"
+          }
+        },
+        {
+          "name": "new_utilization_cap_bps",
+          "type": {
+            "option": "u16"
+          }
+        }
+      ]
+    },
+    {
       "name": "record_notional_exposure",
       "docs": [
         "Record notional exposure when an RFQ is filled (fractional options)",
@@ -1124,7 +1285,8 @@
     {
       "name": "set_min_epoch_duration",
       "docs": [
-        "Set minimum epoch duration (authority only)"
+        "DEPRECATED: Direct parameter changes now require timelock",
+        "Kept for backwards compatibility but will fail"
       ],
       "discriminator": [
         172,
@@ -1170,7 +1332,7 @@
       ],
       "args": [
         {
-          "name": "duration",
+          "name": "_duration",
           "type": "i64"
         }
       ]
@@ -1233,7 +1395,8 @@
     {
       "name": "set_utilization_cap",
       "docs": [
-        "Set utilization cap (authority only)"
+        "DEPRECATED: Direct parameter changes now require timelock",
+        "Kept for backwards compatibility but will fail"
       ],
       "discriminator": [
         54,
@@ -1279,7 +1442,7 @@
       ],
       "args": [
         {
-          "name": "cap_bps",
+          "name": "_cap_bps",
           "type": "u16"
         }
       ]
@@ -1367,6 +1530,32 @@
       ]
     },
     {
+      "name": "ParamChangeExecutedEvent",
+      "discriminator": [
+        208,
+        23,
+        211,
+        151,
+        8,
+        56,
+        124,
+        26
+      ]
+    },
+    {
+      "name": "ParamChangeQueuedEvent",
+      "discriminator": [
+        44,
+        143,
+        34,
+        222,
+        153,
+        125,
+        73,
+        23
+      ]
+    },
+    {
       "name": "PremiumCollectedEvent",
       "discriminator": [
         76,
@@ -1390,6 +1579,19 @@
         83,
         59,
         26
+      ]
+    },
+    {
+      "name": "VaultPausedEvent",
+      "discriminator": [
+        75,
+        189,
+        120,
+        167,
+        117,
+        229,
+        155,
+        60
       ]
     },
     {
@@ -1519,6 +1721,26 @@
       "code": 6019,
       "name": "SlippageExceeded",
       "msg": "Withdrawal amount below minimum expected (slippage protection)"
+    },
+    {
+      "code": 6020,
+      "name": "DivisionByZero",
+      "msg": "Division by zero"
+    },
+    {
+      "code": 6021,
+      "name": "TimelockNotExpired",
+      "msg": "Timelock has not expired yet"
+    },
+    {
+      "code": 6022,
+      "name": "UseTimelockForParamChange",
+      "msg": "Direct param changes deprecated - use queue_param_change"
+    },
+    {
+      "code": 6023,
+      "name": "InvalidParameter",
+      "msg": "Invalid parameter value"
     }
   ],
   "types": [
@@ -1622,6 +1844,54 @@
           {
             "name": "avg_premium_bps",
             "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ParamChangeExecutedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "new_min_epoch_duration",
+            "type": "i64"
+          },
+          {
+            "name": "new_utilization_cap_bps",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ParamChangeQueuedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "new_min_epoch_duration",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "new_utilization_cap_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "unlock_time",
+            "type": "i64"
           }
         ]
       }
@@ -1774,8 +2044,43 @@
             "type": "bool"
           },
           {
+            "name": "pending_min_epoch_duration",
+            "docs": [
+              "SECURITY FIX M-3: Timelock for parameter changes"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "pending_utilization_cap",
+            "type": "u16"
+          },
+          {
+            "name": "param_change_unlock_time",
+            "type": "i64"
+          },
+          {
             "name": "bump",
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VaultPausedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
           }
         ]
       }
