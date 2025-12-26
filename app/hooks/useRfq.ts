@@ -52,7 +52,7 @@ export interface UseRfqReturn {
 }
 
 export function useRfq(options: UseRfqOptions = {}): UseRfqReturn {
-    const { pollInterval = 5000, autoFetch = true } = options;
+    const { pollInterval = 1000, autoFetch = true } = options;
 
     // Router status
     const [routerOnline, setRouterOnline] = useState(false);
@@ -89,7 +89,7 @@ export function useRfq(options: UseRfqOptions = {}): UseRfqReturn {
             if (status) {
                 setCurrentRfq(status);
 
-                // Auto-fill after 5 seconds if we have quotes
+                // Auto-fill after 2 seconds if we have quotes
                 if (status.status === "OPEN" && status.quoteCount > 0 && !fillTimer) {
                     fillTimer = setTimeout(async () => {
                         const result = await fillRfq(currentRfqId);
@@ -98,7 +98,7 @@ export function useRfq(options: UseRfqOptions = {}): UseRfqReturn {
                             const updatedStatus = await getRfqStatus(currentRfqId);
                             if (updatedStatus) setCurrentRfq(updatedStatus);
                         }
-                    }, 5000); // Wait 5 seconds to collect more quotes
+                    }, 2000); // Wait 2 seconds to collect more quotes
                 }
 
                 // Stop polling if RFQ is no longer open
