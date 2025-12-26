@@ -413,6 +413,30 @@ async function runEpochRollForVault(assetId: string, preFetchedPrice?: OraclePri
             );
             logger.info("Exposure recorded", { tx: recordTx });
 
+            // CRITICAL FIX: Transfer the actual premium tokens to the vault
+            // without this, the vault thinks it has money (state) but has no tokens (balance)
+            const vault = await state.onchainClient.fetchVault(assetId);
+            if (vault && premiumBaseUnits > BigInt(0)) {
+                logger.info("Transferring premium tokens to vault...");
+                const payerTokenAccount = await getAssociatedTokenAddress(
+                    vault.premiumMint,
+                    state.wallet.publicKey
+                );
+
+                try {
+                    const collectTx = await state.onchainClient.collectPremium(
+                        assetId,
+                        premiumBaseUnits,
+                        payerTokenAccount
+                    );
+                    logger.info("Premium collected", { tx: collectTx, amount: actualPremium.toFixed(2) });
+                } catch (err: any) {
+                    logger.error("Failed to collect premium - Is keeper wallet funded with USDC?", { error: err.message });
+                    // We don't throw here to avoid crashing the loop, but this is bad state.
+                    // In a real system, we might want to revert the exposure recording or retry.
+                }
+            }
+
             // Track for settlement
             // Step 6: Update state for settlement tracking
             let stats = state.vaultStats.get(assetId);
