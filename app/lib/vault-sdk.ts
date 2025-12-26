@@ -524,7 +524,8 @@ export async function getUserWithdrawalRequest(
 
         // Try to find withdrawal request from previous epochs
         // Start from previous epoch and go back a few epochs
-        for (let epoch = currentEpoch - 1; epoch >= Math.max(0, currentEpoch - 5); epoch--) {
+        // Increased to 50 to handle fast demo epochs or long user inactivity
+        for (let epoch = currentEpoch - 1; epoch >= Math.max(0, currentEpoch - 50); epoch--) {
             try {
                 const [withdrawalPda] = deriveWithdrawalPda(vaultPda, wallet.publicKey, epoch);
                 const withdrawalAccount = await (program.account as any).withdrawalRequest.fetch(withdrawalPda);
