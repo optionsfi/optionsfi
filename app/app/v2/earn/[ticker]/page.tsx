@@ -326,11 +326,43 @@ export default function VaultDetailPage() {
                                         <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2 py-1 bg-gray-900 border border-gray-700 rounded text-[10px] text-gray-300 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">RFQ → Exposure → Settlement</span>
                                     </span>
                                 </p>
-                                <div className="space-y-1.5 mt-3">
-                                    <p className="text-sm font-medium text-gray-200">RFQ Filled</p>
-                                    <p className="text-sm font-medium text-gray-200">Option Exposure Active</p>
-                                    <p className="text-xs text-gray-500">Settlement at Epoch End</p>
-                                    <p className="text-[10px] text-gray-500">Time remaining: ~{timeString}</p>
+                                <div className="space-y-3 mt-3">
+                                    {/* Status Row 1: RFQ */}
+                                    <div className="flex items-center gap-2">
+                                        {exposureTokens > 0 ? (
+                                            <CheckCircle className="w-4 h-4 text-green-400" />
+                                        ) : (
+                                            <div className="w-4 h-4 rounded-full border border-gray-600 border-dashed animate-spin-slow" />
+                                        )}
+                                        <span className={`text-sm font-medium ${exposureTokens > 0 ? "text-green-300" : "text-gray-400"}`}>
+                                            {exposureTokens > 0 ? "RFQ Filled" : "Awaiting RFQ"}
+                                        </span>
+                                    </div>
+
+                                    {/* Status Row 2: Exposure */}
+                                    <div className="flex items-center gap-2">
+                                        {vaultState === "ACTIVE" ? (
+                                            <Zap className="w-4 h-4 text-blue-400" />
+                                        ) : (
+                                            <Clock className="w-4 h-4 text-gray-600" />
+                                        )}
+                                        <span className={`text-sm font-medium ${vaultState === "ACTIVE" ? "text-blue-200" : "text-gray-500"}`}>
+                                            Option Strategy Active
+                                        </span>
+                                    </div>
+
+                                    <div className="pt-2 border-t border-gray-700/50">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-wider">Epoch Ends In</span>
+                                            <span className="text-xs font-mono text-gray-300">~{timeString}</span>
+                                        </div>
+                                        <div className="w-full bg-gray-800 h-1 mt-1.5 rounded-full overflow-hidden">
+                                            <div
+                                                className="bg-gray-600 h-full rounded-full"
+                                                style={{ width: `${Math.min(Math.max(epochProgress, 0), 100)}%` }}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
