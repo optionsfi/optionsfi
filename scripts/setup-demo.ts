@@ -19,7 +19,8 @@ const PROGRAM_ID = new PublicKey("A4jgqct3bwTwRmHECHdPpbH3a8ksaVb7rny9pMUGFo94")
 
 // Devnet mints
 const UNDERLYING_MINT = new PublicKey("G5VWnnWRxVvuTqRCEQNNGEdRmS42hMTyh8DAN9MHecLn");
-const USDC_MINT = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
+// Use mock USDC (faucet) that matches keeper wallet holdings
+const USDC_MINT = new PublicKey("5z8s3k7mkmH1DKFPvjkVd8PxapEeYaPJjqQTJeUEN1i4");
 
 function loadWallet(): Keypair {
     const resolvedPath = WALLET_PATH.replace("~", process.env.HOME || "");

@@ -24,7 +24,7 @@ export const VAULT_CONFIG: Record<string, VaultMetadata> = {
     demonvdax: {
         name: "Demo NVDAx",
         symbol: "NVDAx",
-        assetId: "DemoNVDAx",
+        assetId: "DemoV3",  // Uses mock USDC (5z8s3k...) for premium
         strategy: "Demo Vault",
         logo: "/nvidiax_logo.png",
         accentColor: "#76B900",

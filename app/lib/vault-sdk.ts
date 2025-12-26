@@ -40,7 +40,7 @@ export const VAULTS: Record<string, VaultConfig> = {
     },
     demonvdax: {
         symbol: "DemoNVDAx",
-        assetId: "DemoNVDAx",
+        assetId: "DemoV3",  // Uses mock USDC for premium
         underlyingMint: NVDAX_MINT,
     },
 };
