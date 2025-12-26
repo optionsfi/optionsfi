@@ -147,6 +147,57 @@
       ]
     },
     {
+      "name": "close_vault",
+      "docs": [
+        "Close a vault and recover rent (authority only)",
+        "Vault must be empty (no assets, shares, or pending withdrawals)"
+      ],
+      "discriminator": [
+        141,
+        103,
+        17,
+        126,
+        72,
+        75,
+        29,
+        29
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.asset_id",
+                "account": "Vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "vault"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "collect_premium",
       "docs": [
         "Collect premium from market maker (called during epoch roll)",
@@ -372,6 +423,41 @@
         {
           "name": "amount",
           "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "force_close_vault",
+      "docs": [
+        "Force close a vault account (bypasses deserialization)",
+        "USE WITH CAUTION: Only for recovering from incompatible account structures",
+        "This does NOT check if the vault is empty - authority takes full responsibility"
+      ],
+      "discriminator": [
+        229,
+        45,
+        206,
+        4,
+        96,
+        129,
+        140,
+        24
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "asset_id",
+          "type": "string"
         }
       ]
     },
@@ -914,6 +1000,60 @@
       ]
     },
     {
+      "name": "set_min_epoch_duration",
+      "docs": [
+        "Set minimum epoch duration (authority only)"
+      ],
+      "discriminator": [
+        172,
+        45,
+        116,
+        18,
+        195,
+        137,
+        80,
+        225
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.asset_id",
+                "account": "Vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "vault"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "duration",
+          "type": "i64"
+        }
+      ]
+    },
+    {
       "name": "set_pause",
       "docs": [
         "SECURITY: Pause or unpause the vault (emergency control)",
@@ -965,6 +1105,60 @@
         {
           "name": "paused",
           "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "set_utilization_cap",
+      "docs": [
+        "Set utilization cap (authority only)"
+      ],
+      "discriminator": [
+        54,
+        143,
+        110,
+        156,
+        48,
+        172,
+        7,
+        64
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.asset_id",
+                "account": "Vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "vault"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "cap_bps",
+          "type": "u16"
         }
       ]
     }
@@ -1188,6 +1382,16 @@
       "code": 6016,
       "name": "VaultPaused",
       "msg": "Vault is paused"
+    },
+    {
+      "code": 6017,
+      "name": "VaultNotEmpty",
+      "msg": "Vault must be empty to close"
+    },
+    {
+      "code": 6018,
+      "name": "InvalidVaultPda",
+      "msg": "Invalid vault PDA"
     }
   ],
   "types": [
@@ -1250,6 +1454,10 @@
           },
           {
             "name": "total_shares",
+            "type": "u64"
+          },
+          {
+            "name": "premium_balance_usdc",
             "type": "u64"
           }
         ]
@@ -1423,6 +1631,13 @@
           {
             "name": "epoch_premium_per_token_bps",
             "type": "u32"
+          },
+          {
+            "name": "premium_balance_usdc",
+            "docs": [
+              "Accumulated USDC premium balance (separate from underlying TVL)"
+            ],
+            "type": "u64"
           },
           {
             "name": "is_paused",

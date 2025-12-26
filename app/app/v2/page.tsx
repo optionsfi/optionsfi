@@ -52,7 +52,7 @@ export default function V2EarnDashboard() {
     // Fetch NVDA price for TVL calculation
     useEffect(() => {
         const fetchPrice = async () => {
-            const feedId = getPythFeedId("nvdax3");
+            const feedId = getPythFeedId("nvdax");
             if (!feedId) return;
             try {
                 const response = await fetch(`${HERMES_URL}/v2/updates/price/latest?ids[]=${feedId}&parsed=true`);
