@@ -212,8 +212,11 @@ function ManagePositionModal({
                             <div>
                                 <div className="flex justify-between text-xs mb-2">
                                     <span className="text-gray-500">Amount to deposit</span>
-                                    <span className="text-gray-400">
+                                    <span className="text-gray-400 flex items-center gap-1.5">
                                         Balance: {formatTokenAmount(userUnderlyingBalance)} {meta?.symbol?.replace('x', '')}
+                                        <button onClick={refresh} className="hover:text-white transition-colors">
+                                            <RefreshCw className="w-3 h-3" />
+                                        </button>
                                     </span>
                                 </div>
                                 <div className="relative">
@@ -813,6 +816,14 @@ export default function PortfolioPage() {
                                         <VaultTimer targetTime={nextRoll.epochEndTimestamp} className="text-base font-medium text-white" />
                                     </div>
                                 )}
+                                <div className="pt-2 border-t border-gray-700/30">
+                                    <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1.5">Strategy</p>
+                                    <ul className="text-[10px] text-gray-400 space-y-0.5 list-disc pl-3">
+                                        <li>Covered Calls on {positions[0]?.symbol || "xAsset"}</li>
+                                        <li>Weekly expiry</li>
+                                        <li>Cash-settled</li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
 
@@ -928,7 +939,7 @@ export default function PortfolioPage() {
                         </div>
                     )}
                 </div>
-            </div>
+            </div >
 
             {/* Manage Position Modal */}
             {

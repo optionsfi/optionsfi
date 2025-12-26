@@ -1,0 +1,9 @@
+{
+    "$schema": "https://railway.app/railway.schema.json",
+    "build": {
+        "watchPatterns": [
+            "infra/keeper/**",
+            "programs/vault/**"
+        ]
+    }
+}
