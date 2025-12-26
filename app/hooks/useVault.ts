@@ -80,9 +80,37 @@ export function useVault(assetId: string): UseVaultReturn {
     const vaultRef = useRef<VaultData | null>(null);
 
     // Fetch vault and user data
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (forceRefresh = false) => {
         try {
-            // Only show loading on initial load
+            const cacheKey = `optionsfi_vault_v1_${assetId}_${wallet.publicKey?.toString() || 'anon'}`;
+            const now = Date.now();
+            const TTL = 30000; // 30 seconds
+
+            // Try load from cache first
+            if (!forceRefresh) {
+                try {
+                    const cached = localStorage.getItem(cacheKey);
+                    if (cached) {
+                        const { timestamp, data, userShare, userUnderlying, pending } = JSON.parse(cached);
+                        if (now - timestamp < TTL) {
+                            setVaultData(data);
+                            setUserShareBalance(userShare);
+                            setUserUnderlyingBalance(userUnderlying);
+                            setPendingWithdrawal(pending);
+                            if (isInitialLoad.current) setLoading(false);
+                            isInitialLoad.current = false;
+
+                            // Ensure ref is updated for smoothing logic
+                            vaultRef.current = data;
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.warn("Failed to parse vault cache", e);
+                }
+            }
+
+            // Only show loading on initial load if no cache
             if (isInitialLoad.current) {
                 setLoading(true);
             }
@@ -120,12 +148,18 @@ export function useVault(assetId: string): UseVaultReturn {
                 setVaultData(data);
             }
 
+            let shares = userShareBalance;
+            let underlying = userUnderlyingBalance;
+            let withdrawal = pendingWithdrawal;
+
             // Fetch user balances if wallet connected
             if (wallet.publicKey) {
-                const [shares, underlying] = await Promise.all([
+                const [s, u] = await Promise.all([
                     getUserShareBalance(connection, wallet.publicKey, config.assetId),
                     getUserUnderlyingBalance(connection, wallet.publicKey, config.assetId),
                 ]);
+                shares = s;
+                underlying = u;
 
                 // Only update if changed
                 if (shares !== userShareBalance) setUserShareBalance(shares);
@@ -138,14 +172,31 @@ export function useVault(assetId: string): UseVaultReturn {
                         signTransaction: wallet.signTransaction,
                         signAllTransactions: wallet.signAllTransactions!,
                     } as Wallet;
-                    const withdrawal = await getUserWithdrawalRequest(connection, anchorWallet, config.assetId);
+                    withdrawal = await getUserWithdrawalRequest(connection, anchorWallet, config.assetId);
                     setPendingWithdrawal(withdrawal);
                 }
+            } else {
+                // Reset user state if disconnected
+                if (shares !== 0) setUserShareBalance(0);
+                if (underlying !== 0) setUserUnderlyingBalance(0);
+                if (withdrawal !== null) setPendingWithdrawal(null);
+                shares = 0; underlying = 0; withdrawal = null;
             }
+
+            // Save to cache
+            localStorage.setItem(cacheKey, JSON.stringify({
+                timestamp: now,
+                data,
+                userShare: shares,
+                userUnderlying: underlying,
+                pending: withdrawal
+            }));
+
         } catch (err: any) {
             console.error("Error fetching vault:", err);
             setError(err.message || "Failed to fetch vault data");
-            setVaultData(null);
+            // Don't nullify vaultData if we have stale data, just show error toast effectively
+            // setVaultData(null); 
         } finally {
             if (isInitialLoad.current) {
                 isInitialLoad.current = false;
@@ -349,7 +400,7 @@ export function useVault(assetId: string): UseVaultReturn {
         txStatus,
         txError,
         txSignature,
-        refresh: fetchData,
+        refresh: () => fetchData(true),
     };
 }
 
@@ -373,8 +424,32 @@ export function useAllVaults() {
         vaultsRef.current = vaults;
     }, [vaults]);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (forceRefresh = false) => {
         try {
+            const cacheKey = `optionsfi_all_vaults_v1_${publicKey?.toString() || 'anon'}`;
+            const now = Date.now();
+            const TTL = 30000; // 30 seconds
+
+            // Try load from cache first
+            if (!forceRefresh) {
+                try {
+                    const cached = localStorage.getItem(cacheKey);
+                    if (cached) {
+                        const { timestamp, vResults, bResults } = JSON.parse(cached);
+                        if (now - timestamp < TTL) {
+                            setVaults(vResults);
+                            setUserBalances(bResults);
+                            if (isInitialLoad.current) setLoading(false);
+                            isInitialLoad.current = false;
+                            vaultsRef.current = vResults;
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.warn("Failed to parse all vaults cache", e);
+                }
+            }
+
             // Only show loading on initial load, not refreshes
             if (isInitialLoad.current) {
                 setLoading(true);
@@ -420,6 +495,14 @@ export function useAllVaults() {
                 setVaults(vaultResults);
                 setUserBalances(balanceResults);
             }
+
+            // Save to cache
+            localStorage.setItem(cacheKey, JSON.stringify({
+                timestamp: now,
+                vResults: vaultResults,
+                bResults: balanceResults
+            }));
+
         } catch (err: any) {
             console.error("Error fetching vaults:", err);
             setError(err.message || "Failed to fetch vaults");
