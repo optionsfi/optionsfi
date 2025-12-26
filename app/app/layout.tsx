@@ -19,8 +19,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "xOptions — Decentralized Options for Tokenized Stocks",
-  description: "Trade options on real-world stocks, fully on-chain. Fast, permissionless, cash-settled.",
+  title: "OptionsFi — On-Chain Options Infrastructure",
+  description: "On-chain options infrastructure for tokenized equities. RFQ-priced, cash-settled, and fully composable.",
   icons: {
     icon: "/OptionsFi_favicon.png",
     shortcut: "/OptionsFi_favicon.png",

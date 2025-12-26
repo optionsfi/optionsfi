@@ -468,9 +468,10 @@ export default function PortfolioPage() {
         const totalVaultValue = positions.reduce((sum, p) => sum + p.sharesUsd, 0);
         const totalAccrued = positions.reduce((sum, p) => sum + p.accruedPremium, 0);
         const totalCostBasis = positions.reduce((sum, p) => sum + p.costBasis, 0);
-        const totalUnrealizedPnl = totalVaultValue - totalCostBasis;
+        const rawPnl = totalVaultValue - totalCostBasis;
+        // Treat tiny P&L (under $5) as zero to avoid displaying "-$1" due to oracle price micro-fluctuations
+        const totalUnrealizedPnl = Math.abs(rawPnl) < 5 ? 0 : rawPnl;
         const netDeposits = totalCostBasis;
-        // const estApy = ... (Removed)
         const performancePercent = netDeposits > 0 ? (totalUnrealizedPnl / netDeposits) * 100 : 0;
 
         return {
