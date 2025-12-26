@@ -56,12 +56,15 @@ interface UseVaultReturn {
     refresh: () => Promise<void>;
 }
 
+import { useSettings } from "./useSettings";
+
 /**
  * Hook to interact with a vault (read + write)
  */
 export function useVault(assetId: string): UseVaultReturn {
     const { connection } = useConnection();
     const wallet = useWallet();
+    const { settings } = useSettings();
 
     const [vaultData, setVaultData] = useState<VaultData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -84,7 +87,7 @@ export function useVault(assetId: string): UseVaultReturn {
         try {
             const cacheKey = `optionsfi_vault_v1_${assetId}_${wallet.publicKey?.toString() || 'anon'}`;
             const now = Date.now();
-            const TTL = 30000; // 30 seconds
+            const TTL = settings.refreshInterval; // Use dynamic TTL based on settings
 
             // Try load from cache first
             if (!forceRefresh) {
@@ -195,21 +198,21 @@ export function useVault(assetId: string): UseVaultReturn {
         } catch (err: any) {
             console.error("Error fetching vault:", err);
             setError(err.message || "Failed to fetch vault data");
-            // Don't nullify vaultData if we have stale data, just show error toast effectively
-            // setVaultData(null); 
         } finally {
             if (isInitialLoad.current) {
                 isInitialLoad.current = false;
                 setLoading(false);
             }
         }
-    }, [assetId, connection, wallet.publicKey, wallet.signTransaction, wallet.signAllTransactions]);
+    }, [assetId, connection, wallet.publicKey, wallet.signTransaction, wallet.signAllTransactions, settings.refreshInterval]);
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 30000);
+        if (!settings.autoRefresh) return;
+
+        const interval = setInterval(fetchData, settings.refreshInterval);
         return () => clearInterval(interval);
-    }, [fetchData]);
+    }, [fetchData, settings.autoRefresh, settings.refreshInterval]);
 
     // Send transaction helper
     const sendTransaction = async (tx: Transaction): Promise<string> => {

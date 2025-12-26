@@ -53,6 +53,7 @@ enum Message {
     Fill {
         rfqId: String,
         premium: u64,
+        #[serde(default)]
         maker: String,
     },
 }

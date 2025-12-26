@@ -28,6 +28,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { SettingsProvider } from "../hooks/useSettings";
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -50,15 +52,17 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
         <AppWalletProvider>
-          <div className="min-h-screen flex flex-col">
-            {showNavbar && (
-              <>
-                <Navbar />
-              </>
-            )}
-            {children}
-          </div>
-          <ToastProvider />
+          <SettingsProvider>
+            <div className="min-h-screen flex flex-col">
+              {showNavbar && (
+                <>
+                  <Navbar />
+                </>
+              )}
+              {children}
+            </div>
+            <ToastProvider />
+          </SettingsProvider>
         </AppWalletProvider>
         <Analytics />
       </body>

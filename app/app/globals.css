@@ -5,45 +5,47 @@
   --ui-scale: 1;
   font-size: calc(16px * var(--ui-scale));
 
-  /* Professional Finance Dark Mode */
+  /* Default (Dark) variables */
   --background: #09090b;
-  /* Zinc 950 - Deep, neutral dark */
   --foreground: #fafafa;
-  /* Zinc 50 - Sharp white text */
-
   --card: #09090b;
-  /* Transparent/Same as bg for minimalist look, or slightly lighter */
   --card-foreground: #fafafa;
-
   --popover: #09090b;
   --popover-foreground: #fafafa;
-
   --primary: #fafafa;
-  /* White primary for high contrast minimalism */
   --primary-foreground: #09090b;
-  /* Black text on white buttons */
-
   --secondary: #27272a;
-  /* Zinc 800 */
   --secondary-foreground: #fafafa;
-
   --muted: #27272a;
   --muted-foreground: #a1a1aa;
-  /* Zinc 400 */
-
   --accent: #27272a;
   --accent-foreground: #fafafa;
-
   --destructive: #ef4444;
   --destructive-foreground: #fafafa;
-
   --border: #27272a;
-  /* Subtle borders */
   --input: #27272a;
   --ring: #d4d4d8;
-  /* Zinc 300 */
-
   --radius: 0.5rem;
+}
+
+[data-theme='light'] {
+  --background: #ffffff;
+  --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+  --primary: #09090b;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #09090b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #f4f4f5;
+  --accent-foreground: #09090b;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #09090b;
 }
 
 @theme inline {

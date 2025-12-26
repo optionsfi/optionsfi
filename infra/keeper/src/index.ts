@@ -415,7 +415,7 @@ async function runEpochRollForVault(assetId: string, preFetchedPrice?: OraclePri
                 underlying: assetId,
                 optionType: "CALL",
                 strike: strikePrice,
-                expiry: Date.now() + Number(vaultData.minEpochDuration) * 1000,
+                expiry: Math.floor(Date.now() / 1000) + Number(vaultData.minEpochDuration),
                 size: notionalTokens,
                 premiumFloor: Math.max(1, Math.floor(totalPremium * 0.8 * 1e6)), // 80% of BS price minimum in USDC base units
             }, { timeout: 15000 });

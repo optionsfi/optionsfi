@@ -315,6 +315,7 @@ app.post("/rfq/:rfqId/fill", (req, res) => {
             type: "fill",
             rfqId: rfq.rfqId,
             premium: bestQuote.premium,
+            maker: bestQuote.maker,
         }));
     }
 

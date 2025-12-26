@@ -202,9 +202,16 @@ function handleMessage(msg) {
 
         // Generate quote scaled by actual duration
         // Base rate ~0.2% for a standard 7-day (10,080 min) epoch
-        const expiry = msg.expiry || (Date.now() + 7 * 24 * 60 * 60 * 1000);
-        const now = Date.now();
-        const durationMinutes = Math.max(1, (expiry - now) / (1000 * 60));
+        const rawExpiry = msg.expiry || (Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60);
+        let now = Date.now();
+        let expiryMs = rawExpiry;
+
+        // Detect if expiry is in seconds (usually < 10^10) vs milliseconds
+        if (rawExpiry < 10000000000) {
+            expiryMs = rawExpiry * 1000;
+        }
+
+        const durationMinutes = Math.max(1, (expiryMs - now) / (1000 * 60));
 
         const baseRate = 0.002 + Math.random() * 0.001;
         const timeScale = Math.sqrt(durationMinutes / 10080); // sqrt scale for realistic time-value decay

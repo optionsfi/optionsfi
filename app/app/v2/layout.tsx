@@ -6,6 +6,8 @@ import dynamic from 'next/dynamic';
 import { useState, useEffect } from 'react';
 import { Coins, PieChart, Activity, BookOpen, Settings, Droplets, Logs, Menu, X, LayoutDashboard, Radar, ScrollText } from "lucide-react";
 
+import { useSettings } from "../../hooks/useSettings";
+
 const WalletMultiButton = dynamic(
     () => import('@solana/wallet-adapter-react-ui').then((mod) => mod.WalletMultiButton),
     { ssr: false }
@@ -15,6 +17,7 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const { settings } = useSettings();
 
     useEffect(() => {
         const savedSidebar = localStorage.getItem("sidebarCollapsed");
@@ -76,9 +79,11 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
 
                         <Link href="/v2" className="flex items-center gap-2 md:gap-3">
                             <img src="/OptionsFi_logo.png" alt="OptionsFi" className="h-7 md:h-8 w-auto" />
-                            <span className="hidden sm:inline text-xs font-semibold px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                                V2 Beta
-                            </span>
+                            {settings.showTestnetWarning && (
+                                <span className="hidden sm:inline text-xs font-semibold px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                                    V2 Beta
+                                </span>
+                            )}
                         </Link>
 
                         {/* V1/V2 Toggle - hidden on mobile */}
@@ -97,10 +102,12 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
 
                     <div className="flex items-center gap-2 md:gap-3">
                         {/* Network Badge - smaller on mobile */}
-                        <div className="flex items-center gap-1.5 px-2 py-1 md:px-2.5 md:py-1.5 rounded-lg bg-secondary/50 border border-border">
-                            <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
-                            <span className="text-[10px] md:text-xs font-medium text-muted-foreground">Devnet</span>
-                        </div>
+                        {settings.showTestnetWarning && (
+                            <div className="flex items-center gap-1.5 px-2 py-1 md:px-2.5 md:py-1.5 rounded-lg bg-secondary/50 border border-border">
+                                <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+                                <span className="text-[10px] md:text-xs font-medium text-muted-foreground">Devnet</span>
+                            </div>
+                        )}
 
                         {/* Wallet - hidden on mobile (moved to menu) */}
                         <div className="hidden md:block">
