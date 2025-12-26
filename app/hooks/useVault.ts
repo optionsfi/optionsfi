@@ -136,8 +136,14 @@ export function useVault(assetId: string): UseVaultReturn {
 
             const data = await fetchVaultData(connection, config.assetId);
 
+            // If fetch returned null (RPC error/timeout), keep previous valid data
+            if (!data) {
+                console.warn("fetchVaultData returned null, keeping previous data");
+                return;
+            }
+
             // Client-side smoothing: If APY is 0 (e.g. fresh roll), use previous valid APY if available
-            if (data && data.apy === 0) {
+            if (data.apy === 0) {
                 if (vaultRef.current && vaultRef.current.apy > 0) {
                     data.apy = vaultRef.current.apy;
                 }
@@ -197,7 +203,10 @@ export function useVault(assetId: string): UseVaultReturn {
 
         } catch (err: any) {
             console.error("Error fetching vault:", err);
+            // DON'T clear vaultData on error - keep showing previous valid data
+            // Only set error state for debugging, UI will continue showing cached data
             setError(err.message || "Failed to fetch vault data");
+            // Don't clear vaultData here - this causes the "0 TVL" flash bug
         } finally {
             if (isInitialLoad.current) {
                 isInitialLoad.current = false;
