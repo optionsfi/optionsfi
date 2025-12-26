@@ -19,11 +19,38 @@ const PORT = process.env.PORT || 3005;
 const app = express();
 app.use(express.json());
 
-// CORS for frontend
+// ============================================================================
+// SECURITY FIX L-2: CORS Configuration
+// ============================================================================
+
+// Allowed origins (configure via env in production)
+const ALLOWED_ORIGINS_ENV = process.env.ALLOWED_ORIGINS;
+const ALLOWED_ORIGINS = ALLOWED_ORIGINS_ENV
+    ? ALLOWED_ORIGINS_ENV.split(",").map(o => o.trim())
+    : null; // null = allow all (dev mode only)
+
+if (!ALLOWED_ORIGINS && IS_PRODUCTION) {
+    console.warn("⚠️  WARNING: ALLOWED_ORIGINS not set in production - allowing all origins");
+}
+
 app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
+    const origin = req.headers.origin;
+
+    // In production with whitelist, check against allowed origins
+    if (ALLOWED_ORIGINS) {
+        if (origin && ALLOWED_ORIGINS.includes(origin)) {
+            res.header("Access-Control-Allow-Origin", origin);
+        } else if (origin) {
+            console.warn(`CORS blocked origin: ${origin}`);
+            // Don't set header - browser will block
+        }
+    } else {
+        // Development mode - allow all
+        res.header("Access-Control-Allow-Origin", "*");
+    }
+
     res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Content-Type");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
     if (req.method === "OPTIONS") {
         return res.sendStatus(200);
     }
