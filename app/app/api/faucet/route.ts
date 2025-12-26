@@ -71,7 +71,12 @@ export async function POST(request: NextRequest) {
         // Connect to devnet
         const connection = new Connection(
             process.env.NEXT_PUBLIC_RPC_URL || "https://api.devnet.solana.com",
-            "confirmed"
+            {
+                commitment: "confirmed",
+                httpHeaders: {
+                    Origin: "https://optionsfi.xyz",
+                },
+            }
         );
 
         console.log("Using underlying mint:", MOCK_NVDAX_MINT.toBase58());
