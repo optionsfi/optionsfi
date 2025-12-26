@@ -688,16 +688,17 @@ async function runSettlement(targetAssetId?: string): Promise<{ success: boolean
                 ? epochPremiumEarned - payoffAmount
                 : BigInt(0);
 
-            // SAFETY CAP: If premium > 10% of TVL, it's likely bugged legacy data.
-            // Cap it to 0.1% of TVL to allow settlement to proceed and clear the state.
+            // SAFETY CAP: If premium > 50% of TVL, it will trigger the program's ExcessivePremium error.
+            // This usually happens due to bugged legacy data from the ms-vs-sec unit bug.
+            // Capping to 0 allows the vault to advance epoch and clear the poisoned state.
             const tvl = vault.totalAssets;
-            const cap = tvl / BigInt(10); // 10%
-            if (netPremiumUsdc > cap && tvl > BigInt(0)) {
-                logger.warn("CRITICAL: Detected excessive settlement premium from bugged on-chain state. Capping to 0.1% or 0 to allow recovery.", {
+            const programLimit = tvl / BigInt(2);
+            if (netPremiumUsdc > programLimit) {
+                logger.warn("CRITICAL: Settlement premium exceeds safety limits (bugged state). Capping to 0 to allow recovery.", {
                     originalPremium: (Number(netPremiumUsdc) / 1e6).toFixed(2),
-                    tvl: (Number(tvl) / 1e9).toFixed(2), // assuming 9 decimals for underlying? depends on asset
+                    tvl: (Number(tvl) / 1e9).toFixed(2),
                 });
-                netPremiumUsdc = BigInt(0); // Safest to just treat as 0 gain to unblock
+                netPremiumUsdc = BigInt(0);
             }
 
             // Pass USDC premium to on-chain program which credits it to premium_balance_usdc
