@@ -1286,7 +1286,6 @@ function getTimeAgo(date: Date): string {
     if (hours < 24) return `${hours}h ago`;
     return `${Math.floor(hours / 24)}d ago`;
 }
-}
 
 function VaultTimer({ targetTime, className }: { targetTime: number, className?: string }) {
     const [timeLeft, setTimeLeft] = useState(0);
