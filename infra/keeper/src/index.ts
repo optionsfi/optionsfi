@@ -346,8 +346,13 @@ async function runEpochRollForVault(assetId: string, preFetchedPrice?: OraclePri
             daysToExpiry: daysToExpiry.toFixed(6),
         });
 
-        // Step 6: Calculate notional to expose (use available capacity)
-        const notionalTokens = Math.min(availableExposure, totalAssets * 0.5); // Max 50% per roll
+        // Step 6: Calculate notional to expose
+        // Demo vaults: use full available capacity for quick demos
+        // Production vaults: max 50% per roll for gradual ramp-up
+        const isDemo = assetId.toLowerCase().includes("demo");
+        const notionalTokens = isDemo
+            ? availableExposure
+            : Math.min(availableExposure, totalAssets * 0.5);
         const totalPremium = notionalTokens * premiumPerToken;
 
         logger.info("Notional calculated", {
