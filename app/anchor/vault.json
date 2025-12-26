@@ -201,7 +201,8 @@
       "name": "collect_premium",
       "docs": [
         "Collect premium from market maker (called during epoch roll)",
-        "Transfers USDC from payer to vault's premium account"
+        "Transfers USDC from payer to vault's premium account",
+        "SECURITY FIX M-1: Now requires authority signature to prevent front-running"
       ],
       "discriminator": [
         166,
@@ -248,6 +249,16 @@
           "name": "payer",
           "writable": true,
           "signer": true
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "SECURITY FIX M-1: Authority must sign to prevent front-running premium collection"
+          ],
+          "signer": true,
+          "relations": [
+            "vault"
+          ]
         },
         {
           "name": "token_program",
@@ -762,7 +773,8 @@
     {
       "name": "process_withdrawal",
       "docs": [
-        "Process withdrawal after epoch settles"
+        "Process withdrawal after epoch settles",
+        "SECURITY FIX H-3: Added min_expected_amount for slippage protection"
       ],
       "discriminator": [
         51,
@@ -822,6 +834,103 @@
           "writable": true
         },
         {
+          "name": "vault_premium_account",
+          "writable": true
+        },
+        {
+          "name": "user_premium_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "user"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "premium_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "premium_mint"
+        },
+        {
           "name": "user",
           "writable": true,
           "signer": true,
@@ -832,9 +941,22 @@
         {
           "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "min_expected_amount",
+          "type": "u64"
+        }
+      ]
     },
     {
       "name": "record_notional_exposure",
@@ -1392,6 +1514,11 @@
       "code": 6018,
       "name": "InvalidVaultPda",
       "msg": "Invalid vault PDA"
+    },
+    {
+      "code": 6019,
+      "name": "SlippageExceeded",
+      "msg": "Withdrawal amount below minimum expected (slippage protection)"
     }
   ],
   "types": [

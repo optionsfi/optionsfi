@@ -363,11 +363,13 @@ export async function buildRequestWithdrawalTransaction(
  * Build a process withdrawal transaction (after epoch settles)
  */
 // Build a process withdrawal transaction (after epoch settles)
+// SECURITY: minExpectedAmount provides slippage protection - user specifies minimum tokens they expect
 export async function buildProcessWithdrawalTransaction(
     connection: Connection,
     wallet: Wallet,
     assetId: string,
-    requestEpoch?: number
+    requestEpoch?: number,
+    minExpectedAmount: number = 0  // Default to 0 for backwards compatibility
 ): Promise<Transaction> {
     const provider = new AnchorProvider(connection, wallet, { commitment: "confirmed" });
     const program = getVaultProgram(provider);
@@ -419,8 +421,11 @@ export async function buildProcessWithdrawalTransaction(
         );
     }
 
+    // Convert minExpectedAmount to BN for on-chain instruction
+    const minExpectedBn = new BN(minExpectedAmount);
+
     const processWithdrawalIx = await program.methods
-        .processWithdrawal()
+        .processWithdrawal(minExpectedBn)
         .accounts({
             vault: vaultPda,
             withdrawalRequest: withdrawalPda,

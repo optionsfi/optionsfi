@@ -190,7 +190,8 @@ pub mod vault {
     }
 
     /// Process withdrawal after epoch settles
-    pub fn process_withdrawal(ctx: Context<ProcessWithdrawal>) -> Result<()> {
+    /// SECURITY FIX H-3: Added min_expected_amount for slippage protection
+    pub fn process_withdrawal(ctx: Context<ProcessWithdrawal>, min_expected_amount: u64) -> Result<()> {
         let withdrawal = &mut ctx.accounts.withdrawal_request;
         let vault = &mut ctx.accounts.vault;
 
@@ -211,6 +212,12 @@ pub mod vault {
             .ok_or(VaultError::Overflow)?
             .checked_div(effective_shares as u128)
             .ok_or(VaultError::Overflow)? as u64;
+
+        // SECURITY FIX H-3: Slippage protection - user specifies minimum acceptable amount
+        require!(
+            amount >= min_expected_amount,
+            VaultError::SlippageExceeded
+        );
 
         // SECURITY FIX H-1: Verify vault has sufficient assets
         require!(
@@ -437,6 +444,7 @@ pub mod vault {
 
     /// Collect premium from market maker (called during epoch roll)
     /// Transfers USDC from payer to vault's premium account
+    /// SECURITY FIX M-1: Now requires authority signature to prevent front-running
     pub fn collect_premium(ctx: Context<CollectPremium>, amount: u64) -> Result<()> {
         require!(amount > 0, VaultError::ZeroAmount);
 
@@ -957,7 +965,8 @@ pub struct RecordNotionalExposure<'info> {
 pub struct CollectPremium<'info> {
     #[account(
         seeds = [b"vault", vault.asset_id.as_bytes()],
-        bump = vault.bump
+        bump = vault.bump,
+        has_one = authority  // SECURITY FIX M-1: Require authority to prevent front-running
     )]
     pub vault: Account<'info, Vault>,
 
@@ -975,6 +984,9 @@ pub struct CollectPremium<'info> {
 
     #[account(mut)]
     pub payer: Signer<'info>,
+
+    /// SECURITY FIX M-1: Authority must sign to prevent front-running premium collection
+    pub authority: Signer<'info>,
 
     pub token_program: Program<'info, Token>,
 }
@@ -1258,4 +1270,6 @@ pub enum VaultError {
     VaultNotEmpty,
     #[msg("Invalid vault PDA")]
     InvalidVaultPda,
+    #[msg("Withdrawal amount below minimum expected (slippage protection)")]
+    SlippageExceeded,
 }

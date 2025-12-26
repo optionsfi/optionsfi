@@ -224,6 +224,7 @@ export class OnChainClient {
 
     /**
      * Collect premium from market maker
+     * SECURITY FIX M-1: Now requires authority signature to prevent front-running
      */
     async collectPremium(
         assetId: string,
@@ -245,6 +246,7 @@ export class OnChainClient {
                 vaultPremiumAccount: vault.premiumTokenAccount,
                 payerTokenAccount: payerTokenAccount,
                 payer: this.wallet.publicKey,
+                authority: this.wallet.publicKey,  // SECURITY FIX M-1: Authority must sign
                 tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
             })
             .rpc();
