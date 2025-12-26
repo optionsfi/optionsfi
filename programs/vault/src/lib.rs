@@ -924,22 +924,24 @@ pub struct InitializeVault<'info> {
         payer = authority,
         mint::decimals = underlying_mint.decimals,
         mint::authority = vault,
+        seeds = [b"share_mint", vault.key().as_ref()],
+        bump
     )]
     pub share_mint: Account<'info, Mint>,
 
     #[account(
         init,
         payer = authority,
-        token::mint = underlying_mint,
-        token::authority = vault,
+        associated_token::mint = underlying_mint,
+        associated_token::authority = vault,
     )]
     pub vault_token_account: Account<'info, TokenAccount>,
 
     #[account(
         init,
         payer = authority,
-        token::mint = premium_mint,
-        token::authority = vault,
+        associated_token::mint = premium_mint,
+        associated_token::authority = vault,
     )]
     pub premium_token_account: Account<'info, TokenAccount>,
 
@@ -958,6 +960,7 @@ pub struct InitializeVault<'info> {
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
     pub rent: Sysvar<'info, Rent>,
 }
 
