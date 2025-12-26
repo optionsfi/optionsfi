@@ -424,7 +424,13 @@ export default function PortfolioPage() {
                 const sharesUsd = (userShares / 1e6) * sharePrice * oraclePrice;
 
                 // Get cost basis from deposit history
-                const costBasis = costBasisByVault[id] || sharesUsd; // Default to current value if no history
+                // NOTE: After vault migrations, old deposit history may not apply to new vault
+                // Default to current value (no P&L) to avoid showing phantom losses from old vaults
+                const historicalCostBasis = costBasisByVault[id];
+                // If no deposit history for this vault ID, or if deposits are way higher than current value
+                // (indicating stale data from a migrated vault), use current value as cost basis
+                const costBasisLooksStale = historicalCostBasis && historicalCostBasis > sharesUsd * 1.5;
+                const costBasis = (!historicalCostBasis || costBasisLooksStale) ? sharesUsd : historicalCostBasis;
                 const unrealizedPnl = sharesUsd - costBasis;
                 const unrealizedPnlPercent = costBasis > 0 ? (unrealizedPnl / costBasis) * 100 : 0;
 
@@ -694,7 +700,7 @@ export default function PortfolioPage() {
                             <button onClick={() => setChartExpanded(false)} className="ml-4 p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400"><X className="w-5 h-5" /></button>
                         </div>
                     </div>
-                    <div className="flex-1 bg-gray-800/40 rounded-xl border border-gray-700/40 p-6 min-h-[400px] overflow-hidden">
+                    <div className="flex-1 bg-gray-800/40 rounded-xl border border-gray-700/40 p-6 h-[60vh] overflow-hidden">
                         {!hasActivity ? (
                             <div className="flex flex-col items-center justify-center h-full text-center">
                                 <Activity className="w-16 h-16 text-gray-600 mb-4" />
@@ -702,7 +708,7 @@ export default function PortfolioPage() {
                                 <p className="text-gray-500 text-sm">Deposit or withdraw to see your performance over time</p>
                             </div>
                         ) : (
-                            <div className="h-full w-full overflow-hidden rounded-lg">
+                            <div className="h-full w-full">
                                 <ChartContent chartData={chartData} chartMin={chartMin} chartMax={chartMax} minTime={minTime} timeRange={timeRange}
                                     netDeposits={stats.netDeposits} formatCurrency={formatCurrency} chartMode={chartMode}
                                     hoveredEvent={hoveredEvent} setHoveredEvent={setHoveredEvent} premiumBars={premiumBars} />
