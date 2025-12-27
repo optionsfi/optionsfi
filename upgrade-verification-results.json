@@ -1,0 +1,46 @@
+{
+  "timestamp": "2025-12-27T00:24:52.006Z",
+  "rpcUrl": "https://api.devnet.solana.com",
+  "programId": "A4jgqct3bwTwRmHECHdPpbH3a8ksaVb7rny9pMUGFo94",
+  "results": [
+    {
+      "assetId": "NVDAx",
+      "pda": "sjmw5dVeoAuxXPBiB7hCfQB4yTV8hrVohK4QAxswMZk",
+      "status": "OK",
+      "message": "Assets: 100.00, Active exposure: 80.00",
+      "hasAssets": true,
+      "hasPendingWithdrawals": false,
+      "isInEpoch": true
+    },
+    {
+      "assetId": "DemoNVDAx",
+      "pda": "1356dRUsGrymdUumuN78sYuZytdSJ9n3XgatgBCXHAVR",
+      "status": "NOT_FOUND",
+      "message": "Vault does not exist (already closed?)",
+      "hasAssets": false,
+      "hasPendingWithdrawals": false,
+      "isInEpoch": false
+    },
+    {
+      "assetId": "DemoNVDAx2",
+      "pda": "CFAXhUepjXNEdQdZYsQRvbWzF28zhcV1WfZSivv3hnw4",
+      "status": "NOT_FOUND",
+      "message": "Vault does not exist (already closed?)",
+      "hasAssets": false,
+      "hasPendingWithdrawals": false,
+      "isInEpoch": false
+    },
+    {
+      "assetId": "DemoV3",
+      "pda": "HXQs9HeSdZhbTuf3EZV3WXqqAHfcpESKzSZq5CpSWhbL",
+      "status": "OK",
+      "message": "Assets: 450.00, Pending withdrawals: 450000000, Active exposure: 360.00",
+      "hasAssets": true,
+      "hasPendingWithdrawals": true,
+      "isInEpoch": true
+    }
+  ],
+  "hasErrors": false,
+  "hasWarnings": true,
+  "safeToUpgrade": true
+}

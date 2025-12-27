@@ -194,9 +194,13 @@ pub mod vault {
 
     /// Process withdrawal after epoch settles
     /// SECURITY FIX H-3: Added min_expected_amount for slippage protection
+    /// SECURITY FIX M-3: Blocked when vault is paused
     pub fn process_withdrawal(ctx: Context<ProcessWithdrawal>, min_expected_amount: u64) -> Result<()> {
         let withdrawal = &mut ctx.accounts.withdrawal_request;
         let vault = &mut ctx.accounts.vault;
+
+        // SECURITY FIX M-3: Block withdrawals when paused (emergency protection)
+        require!(!vault.is_paused, VaultError::VaultPaused);
 
         require!(!withdrawal.processed, VaultError::AlreadyProcessed);
         require!(
@@ -451,8 +455,11 @@ pub mod vault {
     /// Collect premium from market maker (called during epoch roll)
     /// Transfers USDC from payer to vault's premium account
     /// SECURITY FIX M-1: Now requires authority signature to prevent front-running
+    /// SECURITY FIX M-1b: Now updates epoch_premium_earned to track state
     pub fn collect_premium(ctx: Context<CollectPremium>, amount: u64) -> Result<()> {
         require!(amount > 0, VaultError::ZeroAmount);
+
+        let vault = &mut ctx.accounts.vault;
 
         token::transfer(
             CpiContext::new(
@@ -466,11 +473,16 @@ pub mod vault {
             amount,
         )?;
 
+        // SECURITY FIX M-1b: Track collected premium in vault state
+        vault.epoch_premium_earned = vault.epoch_premium_earned
+            .checked_add(amount)
+            .ok_or(VaultError::Overflow)?;
+
         emit!(PremiumCollectedEvent {
-            vault: ctx.accounts.vault.key(),
+            vault: vault.key(),
             payer: ctx.accounts.payer.key(),
             amount,
-            epoch: ctx.accounts.vault.epoch,
+            epoch: vault.epoch,
         });
 
         Ok(())
@@ -819,6 +831,13 @@ pub mod vault {
             VaultError::InvalidVaultPda
         );
 
+        // SECURITY FIX H-1: Verify the token account is actually owned by this vault PDA
+        // This prevents closing arbitrary token accounts
+        require!(
+            token_account.owner == vault_pda,
+            VaultError::InvalidTokenAccountOwner
+        );
+
         // Close the token account using vault PDA as signer
         let seeds = &[b"vault".as_ref(), asset_id.as_bytes(), &[bump]];
         let signer_seeds = &[&seeds[..]];
@@ -1139,6 +1158,7 @@ pub struct RecordNotionalExposure<'info> {
 #[derive(Accounts)]
 pub struct CollectPremium<'info> {
     #[account(
+        mut,  // SECURITY FIX M-1b: Mutable to track premium state
         seeds = [b"vault", vault.asset_id.as_bytes()],
         bump = vault.bump,
         has_one = authority  // SECURITY FIX M-1: Require authority to prevent front-running
@@ -1532,4 +1552,6 @@ pub enum VaultError {
     UnauthorizedForceClose,
     #[msg("Vault still exists - close it first before cleaning up token accounts")]
     VaultStillExists,
+    #[msg("Token account is not owned by the expected vault PDA")]
+    InvalidTokenAccountOwner,
 }

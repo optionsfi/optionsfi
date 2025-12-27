@@ -306,7 +306,8 @@
       "docs": [
         "Collect premium from market maker (called during epoch roll)",
         "Transfers USDC from payer to vault's premium account",
-        "SECURITY FIX M-1: Now requires authority signature to prevent front-running"
+        "SECURITY FIX M-1: Now requires authority signature to prevent front-running",
+        "SECURITY FIX M-1b: Now updates epoch_premium_earned to track state"
       ],
       "discriminator": [
         166,
@@ -321,6 +322,7 @@
       "accounts": [
         {
           "name": "vault",
+          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -1123,7 +1125,8 @@
       "name": "process_withdrawal",
       "docs": [
         "Process withdrawal after epoch settles",
-        "SECURITY FIX H-3: Added min_expected_amount for slippage protection"
+        "SECURITY FIX H-3: Added min_expected_amount for slippage protection",
+        "SECURITY FIX M-3: Blocked when vault is paused"
       ],
       "discriminator": [
         51,
@@ -2099,6 +2102,11 @@
       "code": 6025,
       "name": "VaultStillExists",
       "msg": "Vault still exists - close it first before cleaning up token accounts"
+    },
+    {
+      "code": 6026,
+      "name": "InvalidTokenAccountOwner",
+      "msg": "Token account is not owned by the expected vault PDA"
     }
   ],
   "types": [
