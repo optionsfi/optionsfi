@@ -1,0 +1,31 @@
+# Source files (use compiled dist)
+src/
+tests/
+
+# Config files
+tsconfig.json
+.eslintrc*
+.prettierrc*
+vitest.config.*
+
+# Development
+*.test.ts
+*.spec.ts
+__tests__/
+coverage/
+.turbo/
+
+# Build artifacts
+*.tsbuildinfo
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Misc
+*.log
+*.local
