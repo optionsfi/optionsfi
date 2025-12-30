@@ -48,8 +48,12 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
     const utilityNavItems = [
         { href: "/v2/faucet", label: "Faucet", icon: Droplets },
         { href: "/v2/logs", label: "Logs", icon: ScrollText },
-        { href: "/v2/docs", label: "Docs", icon: BookOpen },
         { href: "/v2/settings", label: "Settings", icon: Settings },
+    ];
+
+    // External links
+    const externalLinks = [
+        { href: "https://docs.optionsfi.xyz", label: "Docs", icon: BookOpen },
     ];
 
     const isActive = (href: string) => {
@@ -57,11 +61,7 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
         return pathname?.startsWith(href);
     };
 
-    const isDocs = pathname?.startsWith('/v2/docs');
 
-    if (isDocs) {
-        return <>{children}</>;
-    }
 
     return (
         <div className="h-screen flex flex-col bg-background overflow-hidden">
@@ -163,6 +163,22 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
                                         </Link>
                                     );
                                 })}
+                                {/* External Links */}
+                                {externalLinks.map((item) => {
+                                    const Icon = item.icon;
+                                    return (
+                                        <a
+                                            key={item.href}
+                                            href={item.href}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-muted-foreground/70 hover:text-foreground hover:bg-secondary/50"
+                                        >
+                                            <Icon className="w-4 h-4" />
+                                            <span>{item.label}</span>
+                                        </a>
+                                    );
+                                })}
                             </div>
                         </nav>
                     </div>
@@ -224,6 +240,23 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
                                     <Icon className="w-4.5 h-4.5 flex-shrink-0" />
                                     {!sidebarCollapsed && <span className="text-[13px]">{item.label}</span>}
                                 </Link>
+                            );
+                        })}
+                        {/* External Links */}
+                        {externalLinks.map((item) => {
+                            const Icon = item.icon;
+                            return (
+                                <a
+                                    key={item.href}
+                                    href={item.href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`flex items-center h-10 ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} rounded-lg text-sm font-medium transition-all text-muted-foreground/70 hover:text-foreground hover:bg-secondary/50`}
+                                    title={sidebarCollapsed ? item.label : undefined}
+                                >
+                                    <Icon className="w-4.5 h-4.5 flex-shrink-0" />
+                                    {!sidebarCollapsed && <span className="text-[13px]">{item.label}</span>}
+                                </a>
                             );
                         })}
                     </nav>

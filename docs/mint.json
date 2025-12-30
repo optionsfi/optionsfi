@@ -2,8 +2,8 @@
     "$schema": "https://mintlify.com/schema.json",
     "name": "OptionsFi",
     "logo": {
-        "dark": "/images/logo-dark.svg",
-        "light": "/images/logo-light.svg"
+        "dark": "/images/OptionsFi_logo.png",
+        "light": "/images/OptionsFi_logo.png"
     },
     "favicon": "/images/favicon.svg",
     "colors": {
