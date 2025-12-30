@@ -3,7 +3,7 @@
     "name": "OptionsFi",
     "logo": {
         "dark": "/images/OptionsFi_logo.png",
-        "light": "/images/OptionsFi_logo.png"
+        "light": "/images/OptionsFi_light_logo.png"
     },
     "favicon": "/images/favicon.svg",
     "colors": {
