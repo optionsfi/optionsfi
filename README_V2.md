@@ -168,8 +168,34 @@ The `virtual_offset` (set on first deposit) prevents first-depositor share price
 7. At epoch end:
    a. Keeper checks if options expired ITM or OTM
    b. If OTM: advance_epoch() — vault keeps premium
-   c. If ITM: pay_settlement() — vault pays difference to MM, then advance_epoch()
+   c. If ITM: pay_settlement() — vault pays difference to **actual MM wallet**, then advance_epoch()
 ```
+
+### Production-Ready Settlement System
+
+The V2 architecture includes complete market maker wallet tracking:
+
+**Data Flow:**
+```
+MM Connection (with wallet) → Router validates → Quote includes wallet
+→ RFQ Fill → Keeper stores MM wallet → ITM Settlement → Pay actual MM ✅
+```
+
+**Implementation Details:**
+
+| Component | Responsibility |
+|-----------|----------------|
+| **RFQ Router** | Validates `wallet` + `usdcAccount` on MM connection |
+| **Quote Type** | Extended with `marketMakerWallet` and `usdcTokenAccount` fields |
+| **Keeper VaultStats** | Stores MM wallet info when RFQ is filled |
+| **Settlement Logic** | Uses actual MM wallet from VaultStats (not keeper wallet) |
+| **Smart Contract** | `pay_settlement` validates whitelist and caps payment at premium earned |
+
+**Security:**
+- ✅ Whitelist validation enforced on-chain
+- ✅ Settlement capped at epoch premium earned
+- ✅ Graceful fallback if MM info missing (with warnings)
+- ✅ Complete audit trail in logs
 
 ---
 

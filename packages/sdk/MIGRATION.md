@@ -1,4 +1,77 @@
-# Migration Guide for v0.2.0
+# Migration Guide
+
+## v0.3.0 - Production-Ready Settlements
+
+### New Features
+
+#### Quote Type Extended with MM Wallet Information
+
+Quotes now include market maker wallet addresses for settlement tracking:
+
+**New Fields:**
+```typescript
+interface Quote {
+  // Existing fields...
+  marketMakerWallet: string;   // MM's Solana wallet address
+  usdcTokenAccount: string;    // MM's USDC token account
+}
+```
+
+**Impact:** Non-breaking. Existing code continues to work, but you can now access MM wallet info:
+
+```typescript
+client.subscribeToQuotes(rfqId, (quote) => {
+  console.log('MM Wallet:', quote.marketMakerWallet);
+  console.log('USDC Account:', quote.usdcTokenAccount);
+  console.log('Premium:', quote.premium);
+});
+```
+
+#### Complete Transaction Building
+
+`executeOption()` now builds complete transactions including premium collection:
+
+**Before (v0.2.0):**
+- Transaction included only `recordNotionalExposure`
+- Manual `collectPremium` instruction required
+
+**After (v0.3.0):**
+- Transaction includes both `recordNotionalExposure` AND `collectPremium`
+- Automatically uses MM's USDC account from quote
+- No manual steps needed
+
+```typescript
+// Works automatically - no changes needed
+const signature = await client.executeOption(rfqId, quoteId, wallet);
+```
+
+#### Settlement Tracking
+
+The RFQ fill data now includes MM wallet information:
+
+```typescript
+interface RFQFill {
+  // Existing fields...
+  marketMakerWallet: string;   // NEW: MM wallet for settlement
+  usdcTokenAccount: string;    // NEW: MM USDC account
+}
+```
+
+### Migration Required
+
+**None!** All changes are backward compatible. New fields are automatically populated when available.
+
+### For Market Makers
+
+If you're running a market maker, update your connection to include wallet info:
+
+```typescript
+const wsUrl = `wss://rfq.optionsfi.xyz?makerId=YOUR_ID&wallet=YOUR_WALLET&usdcAccount=YOUR_USDC_ACCOUNT&apiKey=YOUR_KEY`;
+```
+
+---
+
+## v0.2.0
 
 ## Breaking Changes
 

@@ -148,9 +148,40 @@ graph TB
     Accept the best quote and execute the on-chain transaction
   </Step>
   <Step title="Settle">
-    At expiry, the keeper settles ITM options automatically
+    At expiry, the keeper settles ITM options automatically to the actual MM wallet
   </Step>
 </Steps>
+
+### Settlement System
+
+The platform tracks market maker wallets throughout the RFQ lifecycle:
+
+```mermaid
+sequenceDiagram
+    participant MM as Market Maker
+    participant Router as RFQ Router
+    participant Keeper as Keeper Service
+    participant Vault as Vault Program
+    
+    MM->>Router: Connect (wallet + USDC account)
+    Router->>Router: Validate & store MM wallet
+    Keeper->>Router: Create RFQ
+    Router->>MM: Broadcast RFQ
+    MM->>Router: Submit quote (includes wallet)
+    Router->>Keeper: Return quote with MM wallet
+    Keeper->>Keeper: Store winning MM wallet
+    Keeper->>Vault: Execute (collect premium from MM)
+    Note over Keeper,Vault: At expiry (if ITM)
+    Keeper->>Vault: pay_settlement(MM wallet)
+    Vault->>MM: Transfer settlement USDC
+```
+
+**Key Features:**
+- ✅ MM wallets validated on connection
+- ✅ All quotes include MM wallet addresses
+- ✅ Winning MM tracked throughout position lifecycle
+- ✅ ITM settlements paid to actual MM (not intermediaries)
+- ✅ Whitelist validation enforced on-chain
 
 ## Vault Account Structure
 

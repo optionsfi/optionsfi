@@ -48,9 +48,9 @@ Vaults are a reference client built on OptionsFi’s RFQ-based options settlemen
 | Component | Location | Purpose |
 |-----------|----------|---------|
 | Vault Program | `programs/vault/` | On-chain Anchor program. Handles deposits, withdrawals, share minting, premium accounting. |
-| Keeper | `infra/keeper/` | Off-chain Node.js service. Fetches oracle prices, calculates reference pricing parameters and minimum premium constraints (e.g. Black-Scholes bounds), creates RFQs, records exposure, triggers settlement. |
-| RFQ Router | `infra/rfq-router/` | WebSocket server for market maker quote aggregation. Fills best quote. |
-| Mock MM | `infra/rfq-router/mock-mm.js` | Simulated market maker for testing. Quotes premium and transfers tokens on fill. |
+| Keeper | `infra/keeper/` | Off-chain Node.js service. Fetches oracle prices, calculates reference pricing parameters and minimum premium constraints (e.g. Black-Scholes bounds), creates RFQs, records exposure, triggers settlement. **Tracks MM wallets for accurate settlements.** |
+| RFQ Router | `infra/rfq-router/` | WebSocket server for market maker quote aggregation. Fills best quote. **Validates and tracks MM wallet addresses.** |
+| Mock MM | `infra/rfq-router/mock-mm.js` | Simulated market maker for testing. Quotes premium and transfers tokens on fill. **Registers wallet on connection.** |
 | Frontend | `app/` | Next.js UI. Wallet connection, deposit/withdraw flows, vault stats. |
 
 ## Covered Call Economics
@@ -94,6 +94,51 @@ sharePrice = totalAssets / totalShares
 - Withdraw 97.09 vNVDAx → 100 NVDAx (share price increased)
 
 This is the same model used by Aave aTokens and Lido stETH.
+
+## Production-Ready Settlement System
+
+The platform now includes a complete end-to-end settlement system that tracks market maker wallets throughout the RFQ lifecycle:
+
+### How It Works
+
+```
+1. Market Maker Registration
+   └─> MM connects to Router with wallet address + USDC account
+   └─> Router validates and stores MM wallet info
+
+2. RFQ & Quote
+   └─> Keeper creates RFQ for covered call
+   └─> Router broadcasts to all MMs
+   └─> MMs respond with quotes (including their wallet addresses)
+
+3. Quote Selection & Fill
+   └─> Best quote selected
+   └─> Keeper stores winning MM wallet in vault stats
+   └─> Transaction executed: record_exposure + collect_premium from MM
+
+4. ITM Settlement (at expiry)
+   └─> Keeper calculates intrinsic value
+   └─> pay_settlement instruction transfers USDC to actual MM wallet ✅
+   └─> Whitelist validation ensures only authorized MMs receive payments
+```
+
+### Key Features
+
+- ✅ **Wallet Tracking**: MM wallet addresses tracked from connection through settlement
+- ✅ **Quote Validation**: All quotes must include `marketMakerWallet` and `usdcTokenAccount`
+- ✅ **Accurate Settlements**: ITM payouts go to the actual MM who provided the winning quote
+- ✅ **Whitelist Security**: On-chain validation ensures only whitelisted MMs receive funds
+- ✅ **Complete Transactions**: SDK builds full execution transactions including premium collection
+- ✅ **Graceful Fallbacks**: System logs warnings and falls back safely if MM info missing
+
+### For Market Makers
+
+To connect to the RFQ Router, include your wallet information:
+
+```javascript
+const wsUrl = `wss://router.optionsfi.xyz?makerId=YOUR_ID&wallet=YOUR_WALLET&usdcAccount=YOUR_USDC_ACCOUNT&apiKey=YOUR_KEY`;
+const ws = new WebSocket(wsUrl);
+```
 
 ## Quick Start
 

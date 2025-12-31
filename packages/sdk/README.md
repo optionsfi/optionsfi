@@ -10,6 +10,7 @@ TypeScript SDK for OptionsFi, a decentralized options settlement protocol built 
 - 🏦 **Vault Operations** - Interact with on-chain covered call vaults
 - 🔒 **Anonymous RFQs** - Privacy-preserving quote requests for large institutional flows
 - ✅ **Type-Safe** - Comprehensive TypeScript types with runtime validation
+- 🎯 **Production-Ready Settlements** - Complete MM wallet tracking from quote to ITM settlement
 
 ## Installation
 
@@ -30,6 +31,34 @@ npm install @coral-xyz/anchor @solana/web3.js
 These allow you to use your preferred versions of Anchor and Solana web3.js.
 
 ## Quick Start
+
+### Production-Ready Settlement System
+
+The SDK includes complete market maker wallet tracking for accurate settlements:
+
+```typescript
+// Quotes now include MM wallet addresses
+interface Quote {
+  marketMakerWallet: string;   // MM's Solana wallet
+  usdcTokenAccount: string;    // MM's USDC account
+  premium: bigint;
+  // ... other fields
+}
+
+// Transactions automatically include premium collection
+const tx = await client.executeOption(rfqId, quote.id, wallet);
+// Transaction includes:
+// 1. recordNotionalExposure - Record the option position
+// 2. collectPremium - Collect premium from MM's USDC account
+
+// At expiry, ITM settlements go to actual MM wallet (not intermediaries)
+```
+
+**Key Benefits:**
+- ✅ Trustless settlements directly to market makers
+- ✅ Complete transaction building with premium collection
+- ✅ Whitelist validation enforced on-chain
+- ✅ End-to-end wallet tracking from quote to settlement
 
 ### Creating an RFQ
 

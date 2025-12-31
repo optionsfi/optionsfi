@@ -32,14 +32,23 @@ client.subscribeToQuotes(rfqId, (quote: Quote) => {
 
 ```typescript
 interface Quote {
-  id: string;          // Unique quote identifier
-  rfqId: string;       // Associated RFQ
-  marketMaker: string; // Market maker identifier
-  premium: bigint;     // Premium amount in smallest units
-  timestamp: number;   // When quote was submitted
-  expiresAt: number;   // Quote expiration timestamp
+  id: string;                  // Unique quote identifier
+  rfqId: string;               // Associated RFQ
+  marketMaker: string;         // Market maker identifier
+  marketMakerWallet: string;   // MM's Solana wallet (for settlements)
+  usdcTokenAccount: string;    // MM's USDC account (for premium collection)
+  premium: bigint;             // Premium amount in smallest units
+  timestamp: number;           // When quote was submitted
+  expiresAt: number;           // Quote expiration timestamp
 }
 ```
+
+<Note>
+**Production Feature**: Quotes now include market maker wallet addresses. This enables:
+- Accurate ITM settlements directly to the MM who provided the quote
+- Complete on-chain transactions including premium collection from MM
+- Trustless, transparent settlement flow
+</Note>
 
 ## Validating Quotes
 

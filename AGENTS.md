@@ -80,7 +80,9 @@
   - Fetch real-time volatility data (Yahoo Finance)
   - Calculate Black-Scholes premiums
   - Execute on-chain premium collection
-  - Trigger option settlements
+  - Trigger option settlements to actual market makers
+  - **Track MM wallet addresses**: Stores winning MM wallet when RFQ fills
+  - **Production settlements**: Pays ITM settlements to actual MM (not keeper)
 - **API Endpoints**:
   - `POST /trigger` - Manually trigger epoch roll
   - `POST /settle` - Manually trigger settlement
@@ -92,8 +94,11 @@
 - **Flow**:
   1. Receives RFQ from keeper/frontend via HTTP POST
   2. Broadcasts to connected market makers via WebSocket
-  3. Collects quotes from MMs
+  3. Collects quotes from MMs (including MM wallet addresses)
   4. Returns best quote to requester
+- **Production Feature**: Validates and tracks MM wallet addresses
+  - MMs must provide `wallet` and `usdcAccount` on connection
+  - All quotes include MM wallet info for settlement tracking
 - **Files**:
   - `index.js` - Main router
   - `mock-mm.js` - Mock market maker for testing

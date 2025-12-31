@@ -165,6 +165,14 @@ console.log('Transaction:', signature);
   Transaction signature
 </ResponseField>
 
+<Note>
+**Transaction Contents**: The built transaction includes:
+1. `recordNotionalExposure` - Records the option position on the vault
+2. `collectPremium` - Transfers premium from MM's USDC account to vault
+
+Both instructions are atomic. The transaction requires signatures from the vault authority and market maker.
+</Note>
+
 ---
 
 ### cancelRFQ(rfqId)
