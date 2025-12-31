@@ -23,6 +23,7 @@ import {
     premiumToBps,
     blackScholes
 } from "./pricing";
+import { KeeperOracleClient } from "./oracle-client";
 
 // ============================================================================
 // Configuration
@@ -63,6 +64,11 @@ const config = {
     strikeDeltaBps: parseInt(process.env.STRIKE_DELTA_BPS || "1000"), // 10% OTM
     riskFreeRate: parseFloat(process.env.RISK_FREE_RATE || "0.05"), // 5%
     volatilityLookbackDays: parseInt(process.env.VOL_LOOKBACK_DAYS || "30"),
+    // Oracle configuration
+    useOracle: process.env.USE_ORACLE === "true",
+    supabaseUrl: process.env.SUPABASE_URL || "",
+    supabaseKey: process.env.SUPABASE_KEY || "",
+    solanaRpcUrl: process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com",
     healthPort: parseInt(process.env.HEALTH_PORT || "3010"),
     rfqRouterUrl: process.env.RFQ_ROUTER_URL || "http://localhost:3005",
     quoteWaitMs: parseInt(process.env.QUOTE_WAIT_MS || "10000"),
@@ -345,45 +351,137 @@ async function runEpochRollForVault(assetId: string, preFetchedPrice?: OraclePri
             strike: strikePrice.toFixed(2),
         });
 
-        // Step 4: Fetch historical volatility from Yahoo Finance
-        logger.info("Step 4: Fetching historical volatility...");
-        let volatility: number;
-        try {
-            volatility = await getVolatility(config.ticker, config.volatilityLookbackDays);
-            logger.info("Historical volatility fetched", {
-                ticker: config.ticker,
-                volatility: `${(volatility * 100).toFixed(1)}%`,
-                lookbackDays: config.volatilityLookbackDays,
-            });
-        } catch (volError: any) {
-            logger.error("Failed to fetch volatility, using fallback", { error: volError.message });
-            volatility = 0.4; // 40% fallback
-        }
+        // Step 4: Fetch volatility (Oracle or Legacy)
+        logger.info("Step 4: Fetching volatility...");
+        let volatility: number = 0.4; // Default fallback
+        let oraclePricing: any = null;
+        let useOracleMinPremium = false;
+        let daysToExpiry: number = 7; // Default
 
-        // Step 5: Calculate Black-Scholes premium
-        logger.info("Step 5: Calculating Black-Scholes premium...");
-        let durationSeconds = Number(vaultData.minEpochDuration);
-        if (durationSeconds === 0) {
-            // Client-side fallback for 0-duration configs
-            if (assetId.toLowerCase().includes("demo")) {
-                logger.warn("Duration is 0, using fallback 900s for Demo vault");
-                durationSeconds = 900;
-            } else {
-                logger.warn("Duration is 0, using fallback 7 days for Production vault");
-                durationSeconds = 7 * 24 * 60 * 60;
+        if (config.useOracle && config.supabaseUrl && config.supabaseKey) {
+            logger.info("Using Hybrid Oracle for volatility and pricing");
+            try {
+                const oracle = new KeeperOracleClient({
+                    supabaseUrl: config.supabaseUrl,
+                    supabaseKey: config.supabaseKey,
+                    solanaRpcUrl: config.solanaRpcUrl
+                });
+
+                // Calculate days to expiry first
+                let durationSeconds = Number(vaultData.minEpochDuration);
+                if (durationSeconds === 0) {
+                    durationSeconds = assetId.toLowerCase().includes("demo") ? 7 * 24 * 60 * 60 : 24 * 60 * 60;
+                }
+                daysToExpiry = durationSeconds / (24 * 60 * 60);
+
+                // Get hybrid volatility
+                const volResult = await oracle.getVolatility({
+                    assetId: assetId,
+                    tradFiTicker: config.ticker,
+                    onChainMint: vaultData.underlyingMint.toString()
+                }, config.volatilityLookbackDays);
+
+                volatility = volResult.finalVolatility;
+
+                logger.info("Hybrid volatility calculated", {
+                    finalVol: `${(volResult.finalVolatility * 100).toFixed(1)}%`,
+                    tradFiVol: `${(volResult.tradFiVol * 100).toFixed(1)}%`,
+                    onChainVol: `${(volResult.onChainVol * 100).toFixed(1)}%`,
+                    weight: `${(volResult.weight * 100).toFixed(1)}%`,
+                    divergence: `${(volResult.divergence * 100).toFixed(1)}%`,
+                    risk: volResult.recommendation
+                });
+
+                // Get option pricing with risk adjustment
+                oraclePricing = await oracle.getOptionPricing(
+                    {
+                        assetId: assetId,
+                        tradFiTicker: config.ticker,
+                        onChainMint: vaultData.underlyingMint.toString()
+                    },
+                    spotPrice,
+                    strikePrice / spotPrice,
+                    daysToExpiry
+                );
+
+                logger.info("Oracle pricing calculated", {
+                    fairValue: `$${oraclePricing.fairValue.toFixed(4)}`,
+                    minPremium: `$${oraclePricing.minPremium.toFixed(4)}`,
+                    riskAdjustment: `${(oraclePricing.riskAdjustment * 100).toFixed(1)}%`,
+                    recommendation: oraclePricing.metadata.recommendation
+                });
+
+                useOracleMinPremium = true;
+
+                // Alert if divergence is high
+                if (oracle.isDivergenceHigh(volResult.divergence)) {
+                    logger.warn("⚠️  HIGH DIVERGENCE DETECTED", {
+                        divergence: `${(volResult.divergence * 100).toFixed(1)}%`,
+                        message: "Manual review recommended before proceeding"
+                    });
+                }
+            } catch (oracleError: any) {
+                logger.error("Oracle failed, falling back to legacy method", { 
+                    error: oracleError.message 
+                });
+                // Fall through to legacy method
             }
         }
 
-        const daysToExpiry = durationSeconds / (24 * 60 * 60);
-        const premiumPerToken = calculateCoveredCallPremium({
-            spot: spotPrice,
-            strikePercent: strikePrice / spotPrice,
-            daysToExpiry: daysToExpiry,
-            volatility: volatility,
-            riskFreeRate: config.riskFreeRate,
-        });
+        // Legacy method (fallback or if oracle disabled)
+        if (!useOracleMinPremium) {
+            logger.info("Using legacy Yahoo Finance volatility");
+            try {
+                volatility = await getVolatility(config.ticker, config.volatilityLookbackDays);
+                logger.info("Historical volatility fetched", {
+                    ticker: config.ticker,
+                    volatility: `${(volatility * 100).toFixed(1)}%`,
+                    lookbackDays: config.volatilityLookbackDays,
+                });
+            } catch (volError: any) {
+                logger.error("Failed to fetch volatility, using fallback", { error: volError.message });
+                volatility = 0.4; // 40% fallback
+            }
+        }
 
-        const premiumBps = premiumToBps(premiumPerToken, spotPrice);
+        // Step 5: Calculate premium (Oracle or Legacy)
+        logger.info("Step 5: Calculating premium...");
+        let premiumPerToken: number;
+        let premiumBps: number;
+        
+        if (useOracleMinPremium && oraclePricing) {
+            // Use oracle min premium
+            premiumPerToken = oraclePricing.minPremium;
+            premiumBps = premiumToBps(premiumPerToken, spotPrice);
+            
+            logger.info("Using oracle-calculated premium", {
+                fairValue: `$${oraclePricing.fairValue.toFixed(4)}`,
+                minPremium: `$${oraclePricing.minPremium.toFixed(4)}`,
+                premiumBps: premiumBps
+            });
+        } else {
+            // Legacy Black-Scholes calculation
+            let durationSeconds = Number(vaultData.minEpochDuration);
+            if (durationSeconds === 0) {
+                if (assetId.toLowerCase().includes("demo")) {
+                    logger.warn("Duration is 0, using fallback 900s for Demo vault");
+                    durationSeconds = 900;
+                } else {
+                    logger.warn("Duration is 0, using fallback 7 days for Production vault");
+                    durationSeconds = 7 * 24 * 60 * 60;
+                }
+            }
+
+            daysToExpiry = durationSeconds / (24 * 60 * 60);
+            premiumPerToken = calculateCoveredCallPremium({
+                spot: spotPrice,
+                strikePercent: strikePrice / spotPrice,
+                daysToExpiry: daysToExpiry,
+                volatility: volatility,
+                riskFreeRate: config.riskFreeRate,
+            });
+            premiumBps = premiumToBps(premiumPerToken, spotPrice);
+        }
 
         logger.info("Black-Scholes premium calculated", {
             premiumPerToken: premiumPerToken.toFixed(4),
