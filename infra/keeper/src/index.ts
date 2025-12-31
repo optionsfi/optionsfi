@@ -108,6 +108,8 @@ interface VaultStats {
     epochStrikePrice: number;
     epochNotional: bigint;
     epochPremiumEarned: bigint;
+    marketMakerWallet?: string;
+    marketMakerUsdcAccount?: string;
 }
 
 interface KeeperState {
@@ -535,10 +537,29 @@ async function runEpochRollForVault(assetId: string, preFetchedPrice?: OraclePri
             if (fillResponse.data.filled) {
                 actualPremium = fillResponse.data.filled.premium / 1e6; // Convert from base units
                 rfqFilled = true;
+                
+                // Store MM wallet info for settlement
+                const mmWallet = fillResponse.data.filled.makerWallet;
+                const mmUsdcAccount = fillResponse.data.filled.usdcAccount;
+                
                 logger.info("RFQ filled", {
                     maker: fillResponse.data.filled.maker,
+                    makerWallet: mmWallet,
                     premium: actualPremium.toFixed(2),
                 });
+                
+                // Store in vault stats for later settlement
+                let stats = state.vaultStats.get(assetId);
+                if (!stats) {
+                    stats = { 
+                        epochStrikePrice: 0, 
+                        epochNotional: BigInt(0), 
+                        epochPremiumEarned: BigInt(0) 
+                    };
+                    state.vaultStats.set(assetId, stats);
+                }
+                stats.marketMakerWallet = mmWallet;
+                stats.marketMakerUsdcAccount = mmUsdcAccount;
             }
         } catch (rfqError: any) {
             logger.warn("RFQ failed, using BS premium", { error: rfqError.message });
@@ -785,7 +806,52 @@ async function runSettlement(targetAssetId?: string): Promise<{ success: boolean
                 payoffAmount: (Number(payoffAmount) / 1e6).toFixed(2),
             });
 
-            // TODO: Pay settlement to MM using paySettlement()
+            // Pay settlement to MM using paySettlement()
+            // Check if we have MM wallet info from the RFQ fill
+            const mmWallet = stats?.marketMakerWallet;
+            const mmUsdcAccount = stats?.marketMakerUsdcAccount;
+            
+            let recipient: PublicKey;
+            let recipientTokenAccount: PublicKey;
+            
+            if (mmWallet && mmUsdcAccount) {
+                // Use actual MM wallet from RFQ
+                recipient = new PublicKey(mmWallet);
+                recipientTokenAccount = new PublicKey(mmUsdcAccount);
+                logger.info("Using actual MM wallet for settlement", {
+                    wallet: mmWallet,
+                    usdcAccount: mmUsdcAccount,
+                });
+            } else {
+                // Fallback to keeper wallet (for testing or if MM info missing)
+                logger.warn("MM wallet not found in stats, falling back to keeper wallet");
+                recipient = state.wallet.publicKey;
+                recipientTokenAccount = await getAssociatedTokenAddress(
+                    vault.premiumMint,
+                    recipient
+                );
+            }
+
+            try {
+                const settlementTx = await state.onchainClient!.paySettlement(
+                    assetId,
+                    payoffAmount,
+                    recipientTokenAccount,
+                    recipient
+                );
+                logger.info("Settlement paid to MM", {
+                    tx: settlementTx,
+                    amount: (Number(payoffAmount) / 1e6).toFixed(2),
+                    recipient: recipient.toBase58(),
+                });
+            } catch (error: any) {
+                logger.error("Failed to pay settlement to MM", {
+                    error: error.message,
+                    amount: (Number(payoffAmount) / 1e6).toFixed(2),
+                });
+                // Continue with epoch advance even if settlement payment fails
+                // This prevents the vault from getting stuck
+            }
         } else {
             logger.info("OTM settlement - vault keeps premium");
         }

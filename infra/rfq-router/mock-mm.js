@@ -138,13 +138,20 @@ async function init() {
     }
 }
 
-function connect() {
+async function connect() {
     console.log(`\nConnecting to RFQ Router as ${MAKER_ID}...`);
 
+    // Get wallet and USDC token account
+    const walletAddress = wallet.publicKey.toString();
+    const usdcMint = new PublicKey(USDC_MINT);
+    const usdcTokenAccount = await getAssociatedTokenAddress(usdcMint, wallet.publicKey);
+    
     // SECURITY FIX H-2: Use Authorization header (still use query for makerId since WS doesn't support headers natively)
     // Note: ws library supports headers option for the initial HTTP upgrade request
-    const wsUrl = `${ROUTER_WS_URL}?makerId=${MAKER_ID}`;
+    const wsUrl = `${ROUTER_WS_URL}?makerId=${MAKER_ID}&wallet=${walletAddress}&usdcAccount=${usdcTokenAccount.toString()}`;
     console.log(`WebSocket URL: ${wsUrl}`);
+    console.log(`Wallet: ${walletAddress}`);
+    console.log(`USDC Account: ${usdcTokenAccount.toString()}`);
 
     ws = new WebSocket(wsUrl, {
         headers: {

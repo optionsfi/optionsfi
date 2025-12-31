@@ -28,6 +28,8 @@ export interface RfqResponse {
 export interface Quote {
     premium: number;
     maker: string;
+    makerWallet?: string;
+    usdcTokenAccount?: string;
 }
 
 export interface RfqStatus {

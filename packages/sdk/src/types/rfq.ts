@@ -73,6 +73,12 @@ export interface Quote {
     /** Market maker identifier */
     marketMaker: string;
 
+    /** Market maker's Solana wallet address */
+    marketMakerWallet: string;
+
+    /** Market maker's USDC token account for premium collection */
+    usdcTokenAccount: string;
+
     /** Premium amount in USDC (scaled by decimals, typically 6) */
     premium: bigint;
 
@@ -106,6 +112,8 @@ export interface RFQ {
     fill?: {
         quoteId: string;
         marketMaker: string;
+        marketMakerWallet: string;
+        usdcTokenAccount: string;
         premium: bigint;
         filledAt: number;
         transactionSignature?: string;

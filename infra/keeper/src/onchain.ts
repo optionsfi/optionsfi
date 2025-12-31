@@ -53,6 +53,13 @@ export function deriveShareEscrowPda(vaultPda: PublicKey): [PublicKey, number] {
     );
 }
 
+export function deriveWhitelistPda(vaultPda: PublicKey): [PublicKey, number] {
+    return PublicKey.findProgramAddressSync(
+        [Buffer.from("whitelist"), vaultPda.toBuffer()],
+        VAULT_PROGRAM_ID
+    );
+}
+
 // ============================================================================
 // Vault Data Interface
 // ============================================================================
@@ -268,6 +275,7 @@ export class OnChainClient {
         }
 
         const [vaultPda] = deriveVaultPda(assetId);
+        const [whitelistPda] = deriveWhitelistPda(vaultPda);
         const vault = await this.fetchVault(assetId);
         if (!vault) throw new Error("Vault not found");
 
@@ -275,6 +283,7 @@ export class OnChainClient {
             .paySettlement(new anchor.BN(amount.toString()))
             .accounts({
                 vault: vaultPda,
+                whitelist: whitelistPda,
                 vaultPremiumAccount: vault.premiumTokenAccount,
                 recipientTokenAccount: recipientTokenAccount,
                 recipient: recipient,

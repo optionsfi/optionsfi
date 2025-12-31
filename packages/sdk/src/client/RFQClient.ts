@@ -28,6 +28,7 @@ import WebSocket from 'ws';
 import { Connection, Transaction, PublicKey } from '@solana/web3.js';
 import type { RFQConfig, RFQParams, Quote, RFQ, RFQEvent } from '../types';
 import { RFQ_DEFAULTS } from '../constants/config';
+import { VaultInstructions } from './VaultInstructions';
 
 /**
  * RFQ Client for interacting with OptionsFi infrastructure
@@ -42,6 +43,7 @@ export class RFQClient {
     private isConnected = false;
     private reconnectAttempts = 0;
     private maxReconnectAttempts = 5;
+    private vaultInstructions: VaultInstructions;
 
     /**
      * Create a new RFQ Client
@@ -54,6 +56,7 @@ export class RFQClient {
             rfqTimeoutMs: config.rfqTimeoutMs ?? RFQ_DEFAULTS.timeoutMs,
         };
         this.connection = new Connection(config.rpcUrl, 'confirmed');
+        this.vaultInstructions = new VaultInstructions(this.connection);
     }
 
     /**
@@ -243,6 +246,8 @@ export class RFQClient {
         rfq.fill = {
             quoteId,
             marketMaker: quote.marketMaker,
+            marketMakerWallet: quote.marketMakerWallet,
+            usdcTokenAccount: quote.usdcTokenAccount,
             premium: quote.premium,
             filledAt: Date.now(),
             transactionSignature: signature,
@@ -315,6 +320,8 @@ export class RFQClient {
                 id: message.quoteId || `quote_${Date.now()}`,
                 rfqId: message.rfqId,
                 marketMaker: message.maker,
+                marketMakerWallet: message.makerWallet || '',
+                usdcTokenAccount: message.usdcAccount || '',
                 premium: BigInt(message.premium),
                 timestamp: Date.now(),
                 expiresAt: message.expiresAt || Date.now() + 60000,
@@ -388,19 +395,78 @@ export class RFQClient {
         return `rfq_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     }
 
+    /**
+     * Build transaction to execute an accepted quote
+     * 
+     * @param rfq - The RFQ being executed
+     * @param quote - The accepted quote
+     * @returns Transaction to record exposure and collect premium
+     * 
+     * @remarks
+     * This builds a transaction with two instructions:
+     * 1. Record notional exposure on the vault
+     * 2. Collect premium from the market maker
+     * 
+     * The transaction must be signed by the vault authority and market maker before submission.
+     * 
+     * @throws Error if vault not found or quote missing MM wallet information
+     */
     private async buildExecutionTransaction(
         rfq: RFQ,
         quote: Quote
     ): Promise<Transaction> {
-        // TODO: Build actual Solana transaction calling vault program
-        // This requires:
-        // 1. Record notional exposure on vault
-        // 2. Trigger premium collection
-        // The exact implementation depends on the vault's instruction interface
-        throw new Error(
-            'Transaction building not yet implemented. ' +
-            'Use VaultInstructions class to build transactions manually.'
-        );
+        if (!this.vaultInstructions.isInitialized) {
+            await this.vaultInstructions.initialize();
+        }
+
+        // Parse vault address from RFQ params
+        const vaultPubkey = new PublicKey(rfq.params.vaultAddress);
+        
+        // Fetch vault data to get authority and premium mint
+        const vault = await this.vaultInstructions.fetchVault(rfq.params.asset);
+        if (!vault) {
+            throw new Error(`Vault not found for asset ${rfq.params.asset}`);
+        }
+
+        // Validate quote has MM wallet information
+        if (!quote.marketMakerWallet || !quote.usdcTokenAccount) {
+            throw new Error(
+                'Quote missing market maker wallet information. ' +
+                'Ensure the quote includes marketMakerWallet and usdcTokenAccount fields.'
+            );
+        }
+
+        // Calculate notional and premium amounts
+        // For a CALL option: notional is the quantity of underlying tokens
+        // Premium is quote.premium (already in USDC lamports)
+        const notionalTokens = rfq.params.quantity;
+        const premium = quote.premium;
+
+        // Parse MM wallet addresses
+        const mmUsdcAccount = new PublicKey(quote.usdcTokenAccount);
+
+        // Build transaction with two instructions
+        const transaction = new Transaction();
+
+        // Instruction 1: Record notional exposure
+        const recordExposureIx = await this.vaultInstructions.recordNotionalExposure({
+            vault: vaultPubkey,
+            authority: vault.authority,
+            notionalTokens,
+            premium,
+        });
+        transaction.add(recordExposureIx);
+
+        // Instruction 2: Collect premium from market maker
+        const collectPremiumIx = await this.vaultInstructions.collectPremium({
+            vault: vaultPubkey,
+            authority: vault.authority,
+            payerTokenAccount: mmUsdcAccount,
+            amount: premium,
+        });
+        transaction.add(collectPremiumIx);
+
+        return transaction;
     }
 
     private attemptReconnect(): void {

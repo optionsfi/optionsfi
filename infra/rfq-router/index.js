@@ -183,9 +183,40 @@ wss.on("connection", (ws, req) => {
     }
 
     const makerId = auth.makerId;
-    console.log(`Maker authenticated: ${makerId}`);
-    makers.set(makerId, ws);
-    logEvent("maker_connected", { makerId, totalMakers: makers.size });
+    
+    // Extract wallet and USDC account from URL params
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const wallet = url.searchParams.get("wallet");
+    const usdcAccount = url.searchParams.get("usdcAccount");
+    
+    // Validate wallet and USDC account are provided
+    if (!wallet || !usdcAccount) {
+        console.log(`Maker ${makerId} connection rejected: missing wallet or USDC account`);
+        logEvent("maker_rejected", { 
+            reason: "missing_wallet_info", 
+            makerId,
+            hasWallet: !!wallet,
+            hasUsdcAccount: !!usdcAccount
+        });
+        ws.close(4001, "Missing wallet or usdcAccount query parameters");
+        return;
+    }
+    
+    console.log(`Maker authenticated: ${makerId} (wallet: ${wallet})`);
+    
+    // Store maker with wallet information
+    makers.set(makerId, {
+        ws,
+        wallet,
+        usdcAccount,
+        connectedAt: Date.now()
+    });
+    
+    logEvent("maker_connected", { 
+        makerId, 
+        wallet,
+        totalMakers: makers.size 
+    });
 
     ws.on("message", (data) => {
         try {
@@ -234,6 +265,11 @@ function handleMakerMessage(makerId, msg) {
             return;
         }
 
+        // Get maker info (wallet and USDC account)
+        const makerInfo = makers.get(makerId);
+        const makerWallet = makerInfo?.wallet || null;
+        const usdcAccount = makerInfo?.usdcAccount || null;
+        
         // Check for duplicate quotes from same maker
         const existingQuote = rfq.quotes.find(q => q.maker === makerId);
         if (existingQuote) {
@@ -241,10 +277,14 @@ function handleMakerMessage(makerId, msg) {
             existingQuote.premium = msg.premium;
             existingQuote.timestamp = Date.now();
             existingQuote.validUntil = msg.validUntil || (Date.now() + 60000); // 60s default
+            existingQuote.makerWallet = makerWallet;
+            existingQuote.usdcAccount = usdcAccount;
         } else {
             rfq.quotes.push({
                 id: `quote_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
                 maker: makerId,
+                makerWallet: makerWallet,
+                usdcAccount: usdcAccount,
                 premium: msg.premium,
                 timestamp: Date.now(),
                 validUntil: msg.validUntil || (Date.now() + 60000), // 60s default
@@ -272,9 +312,9 @@ function handleMakerMessage(makerId, msg) {
 
 function broadcastToMakers(message) {
     const data = JSON.stringify(message);
-    for (const [makerId, ws] of makers) {
+    for (const [makerId, makerInfo] of makers) {
         try {
-            ws.send(data);
+            makerInfo.ws.send(data);
         } catch (e) {
             console.error(`Failed to send to ${makerId}:`, e);
         }
