@@ -147,6 +147,110 @@
       ]
     },
     {
+      "name": "cancel_param_change",
+      "docs": [
+        "Cancel a queued parameter change"
+      ],
+      "discriminator": [
+        150,
+        147,
+        92,
+        108,
+        72,
+        160,
+        224,
+        55
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.asset_id",
+                "account": "Vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "vault"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "close_orphaned_token_account",
+      "docs": [
+        "Close an orphaned token account that was owned by a vault PDA",
+        "This is used to clean up old share escrows, vault token accounts, etc.",
+        "after a vault has been force-closed, enabling reuse of asset IDs.",
+        "",
+        "The caller must provide the correct asset_id that was used to derive the vault PDA.",
+        "The vault PDA must NOT exist anymore (force-closed)."
+      ],
+      "discriminator": [
+        232,
+        127,
+        173,
+        13,
+        92,
+        144,
+        116,
+        98
+      ],
+      "accounts": [
+        {
+          "name": "vault_pda",
+          "docs": [
+            "We verify this matches the derived PDA in the instruction"
+          ],
+          "writable": true
+        },
+        {
+          "name": "token_account",
+          "docs": [
+            "The token account to close (share escrow, vault token account, etc.)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "Authority receiving the lamports"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "asset_id",
+          "type": "string"
+        }
+      ]
+    },
+    {
       "name": "close_vault",
       "docs": [
         "Close a vault and recover rent (authority only)",
@@ -201,7 +305,9 @@
       "name": "collect_premium",
       "docs": [
         "Collect premium from market maker (called during epoch roll)",
-        "Transfers USDC from payer to vault's premium account"
+        "Transfers USDC from payer to vault's premium account",
+        "SECURITY FIX M-1: Now requires authority signature to prevent front-running",
+        "SECURITY FIX M-1b: Now updates epoch_premium_earned to track state"
       ],
       "discriminator": [
         166,
@@ -216,6 +322,7 @@
       "accounts": [
         {
           "name": "vault",
+          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -248,6 +355,16 @@
           "name": "payer",
           "writable": true,
           "signer": true
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "SECURITY FIX M-1: Authority must sign to prevent front-running premium collection"
+          ],
+          "signer": true,
+          "relations": [
+            "vault"
+          ]
         },
         {
           "name": "token_program",
@@ -427,11 +544,60 @@
       ]
     },
     {
+      "name": "execute_param_change",
+      "docs": [
+        "SECURITY FIX M-3: Execute queued parameter changes after timelock"
+      ],
+      "discriminator": [
+        162,
+        166,
+        56,
+        243,
+        168,
+        135,
+        66,
+        175
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.asset_id",
+                "account": "Vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "vault"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "force_close_vault",
       "docs": [
         "Force close a vault account (bypasses deserialization)",
         "USE WITH CAUTION: Only for recovering from incompatible account structures",
-        "This does NOT check if the vault is empty - authority takes full responsibility"
+        "SECURITY FIX C-2: Now verifies caller is the stored vault authority"
       ],
       "discriminator": [
         229,
@@ -464,7 +630,8 @@
     {
       "name": "initialize_vault",
       "docs": [
-        "Initialize a new vault for a specific xStock asset"
+        "Initialize a new vault for a specific xStock asset",
+        "SECURITY: Validates mint addresses to prevent malicious tokens"
       ],
       "discriminator": [
         48,
@@ -508,17 +675,209 @@
         {
           "name": "share_mint",
           "writable": true,
-          "signer": true
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  104,
+                  97,
+                  114,
+                  101,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              }
+            ]
+          }
         },
         {
           "name": "vault_token_account",
           "writable": true,
-          "signer": true
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "vault"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "underlying_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
         },
         {
           "name": "premium_token_account",
           "writable": true,
-          "signer": true
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "vault"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "premium_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
         },
         {
           "name": "share_escrow",
@@ -561,6 +920,10 @@
         {
           "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         },
         {
           "name": "rent",
@@ -762,7 +1125,9 @@
     {
       "name": "process_withdrawal",
       "docs": [
-        "Process withdrawal after epoch settles"
+        "Process withdrawal after epoch settles",
+        "SECURITY FIX H-3: Added min_expected_amount for slippage protection",
+        "SECURITY FIX M-3: Blocked when vault is paused"
       ],
       "discriminator": [
         51,
@@ -939,6 +1304,128 @@
           "address": "11111111111111111111111111111111"
         }
       ],
+      "args": [
+        {
+          "name": "min_expected_amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "queue_param_change",
+      "docs": [
+        "SECURITY FIX M-3: Queue a parameter change with timelock",
+        "Changes take effect after TIMELOCK_DURATION (24 hours)"
+      ],
+      "discriminator": [
+        140,
+        242,
+        124,
+        63,
+        143,
+        237,
+        195,
+        231
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.asset_id",
+                "account": "Vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "vault"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "new_min_epoch_duration",
+          "type": {
+            "option": "i64"
+          }
+        },
+        {
+          "name": "new_utilization_cap_bps",
+          "type": {
+            "option": "u16"
+          }
+        }
+      ]
+    },
+    {
+      "name": "reconcile_premium_balance",
+      "docs": [
+        "Reconcile premium_balance_usdc state with actual token account balance",
+        "Use this to fix state drift caused by manual token movements or bugs",
+        "Authority only"
+      ],
+      "discriminator": [
+        49,
+        2,
+        198,
+        176,
+        1,
+        107,
+        109,
+        20
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.asset_id",
+                "account": "Vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault_premium_account"
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "vault"
+          ]
+        }
+      ],
       "args": []
     },
     {
@@ -997,6 +1484,90 @@
         {
           "name": "premium",
           "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "remove_market_maker",
+      "docs": [
+        "SECURITY FIX M-4: Remove a market maker from the whitelist"
+      ],
+      "discriminator": [
+        101,
+        241,
+        39,
+        132,
+        210,
+        208,
+        183,
+        254
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.asset_id",
+                "account": "Vault"
+              }
+            ]
+          },
+          "relations": [
+            "whitelist"
+          ]
+        },
+        {
+          "name": "whitelist",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  104,
+                  105,
+                  116,
+                  101,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "vault",
+            "whitelist"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "market_maker",
+          "type": "pubkey"
         }
       ]
     },
@@ -1107,7 +1678,8 @@
     {
       "name": "set_min_epoch_duration",
       "docs": [
-        "Set minimum epoch duration (authority only)"
+        "DEPRECATED: Direct parameter changes now require timelock",
+        "Kept for backwards compatibility but will fail"
       ],
       "discriminator": [
         172,
@@ -1153,7 +1725,7 @@
       ],
       "args": [
         {
-          "name": "duration",
+          "name": "_duration",
           "type": "i64"
         }
       ]
@@ -1216,7 +1788,8 @@
     {
       "name": "set_utilization_cap",
       "docs": [
-        "Set utilization cap (authority only)"
+        "DEPRECATED: Direct parameter changes now require timelock",
+        "Kept for backwards compatibility but will fail"
       ],
       "discriminator": [
         54,
@@ -1262,7 +1835,7 @@
       ],
       "args": [
         {
-          "name": "cap_bps",
+          "name": "_cap_bps",
           "type": "u16"
         }
       ]
@@ -1337,6 +1910,19 @@
       ]
     },
     {
+      "name": "MarketMakerRemovedEvent",
+      "discriminator": [
+        238,
+        48,
+        105,
+        84,
+        228,
+        245,
+        204,
+        75
+      ]
+    },
+    {
       "name": "NotionalExposureEvent",
       "discriminator": [
         220,
@@ -1347,6 +1933,45 @@
         183,
         23,
         38
+      ]
+    },
+    {
+      "name": "ParamChangeExecutedEvent",
+      "discriminator": [
+        208,
+        23,
+        211,
+        151,
+        8,
+        56,
+        124,
+        26
+      ]
+    },
+    {
+      "name": "ParamChangeQueuedEvent",
+      "discriminator": [
+        44,
+        143,
+        34,
+        222,
+        153,
+        125,
+        73,
+        23
+      ]
+    },
+    {
+      "name": "PremiumBalanceReconciledEvent",
+      "discriminator": [
+        226,
+        48,
+        86,
+        114,
+        81,
+        234,
+        106,
+        18
       ]
     },
     {
@@ -1373,6 +1998,19 @@
         83,
         59,
         26
+      ]
+    },
+    {
+      "name": "VaultPausedEvent",
+      "discriminator": [
+        75,
+        189,
+        120,
+        167,
+        117,
+        229,
+        155,
+        60
       ]
     },
     {
@@ -1497,6 +2135,46 @@
       "code": 6018,
       "name": "InvalidVaultPda",
       "msg": "Invalid vault PDA"
+    },
+    {
+      "code": 6019,
+      "name": "SlippageExceeded",
+      "msg": "Withdrawal amount below minimum expected (slippage protection)"
+    },
+    {
+      "code": 6020,
+      "name": "DivisionByZero",
+      "msg": "Division by zero"
+    },
+    {
+      "code": 6021,
+      "name": "TimelockNotExpired",
+      "msg": "Timelock has not expired yet"
+    },
+    {
+      "code": 6022,
+      "name": "UseTimelockForParamChange",
+      "msg": "Direct param changes deprecated - use queue_param_change"
+    },
+    {
+      "code": 6023,
+      "name": "InvalidParameter",
+      "msg": "Invalid parameter value"
+    },
+    {
+      "code": 6024,
+      "name": "UnauthorizedForceClose",
+      "msg": "Caller is not the vault authority"
+    },
+    {
+      "code": 6025,
+      "name": "VaultStillExists",
+      "msg": "Vault still exists - close it first before cleaning up token accounts"
+    },
+    {
+      "code": 6026,
+      "name": "InvalidTokenAccountOwner",
+      "msg": "Token account is not owned by the expected vault PDA"
     }
   ],
   "types": [
@@ -1569,6 +2247,25 @@
       }
     },
     {
+      "name": "MarketMakerRemovedEvent",
+      "docs": [
+        "SECURITY FIX M-4: Event emitted when a market maker is removed"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "market_maker",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
       "name": "NotionalExposureEvent",
       "type": {
         "kind": "struct",
@@ -1600,6 +2297,77 @@
           {
             "name": "avg_premium_bps",
             "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ParamChangeExecutedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "new_min_epoch_duration",
+            "type": "i64"
+          },
+          {
+            "name": "new_utilization_cap_bps",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ParamChangeQueuedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "new_min_epoch_duration",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "new_utilization_cap_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "unlock_time",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PremiumBalanceReconciledEvent",
+      "docs": [
+        "Event emitted when premium balance is reconciled"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "old_balance",
+            "type": "u64"
+          },
+          {
+            "name": "new_balance",
+            "type": "u64"
           }
         ]
       }
@@ -1752,8 +2520,43 @@
             "type": "bool"
           },
           {
+            "name": "pending_min_epoch_duration",
+            "docs": [
+              "SECURITY FIX M-3: Timelock for parameter changes"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "pending_utilization_cap",
+            "type": "u16"
+          },
+          {
+            "name": "param_change_unlock_time",
+            "type": "i64"
+          },
+          {
             "name": "bump",
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VaultPausedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
           }
         ]
       }

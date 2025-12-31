@@ -25,9 +25,10 @@ pub mod vault {
         // SECURITY: Validate underlying mint is not suspicious
         // Check for freeze authority (suspicious for DeFi)
         let underlying_mint_info = &ctx.accounts.underlying_mint;
-        if let Some(_freeze_auth) = underlying_mint_info.freeze_authority {
+        if underlying_mint_info.freeze_authority.is_some() {
             msg!("WARNING: Underlying mint has freeze authority");
             // In production, you might want to reject this
+            // return err!(VaultError::SuspiciousMint);
         }
         
         // SECURITY: Validate premium mint (USDC)

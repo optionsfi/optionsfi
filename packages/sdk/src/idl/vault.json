@@ -306,7 +306,8 @@
       "docs": [
         "Collect premium from market maker (called during epoch roll)",
         "Transfers USDC from payer to vault's premium account",
-        "SECURITY FIX M-1: Now requires authority signature to prevent front-running"
+        "SECURITY FIX M-1: Now requires authority signature to prevent front-running",
+        "SECURITY FIX M-1b: Now updates epoch_premium_earned to track state"
       ],
       "discriminator": [
         166,
@@ -321,6 +322,7 @@
       "accounts": [
         {
           "name": "vault",
+          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -628,7 +630,8 @@
     {
       "name": "initialize_vault",
       "docs": [
-        "Initialize a new vault for a specific xStock asset"
+        "Initialize a new vault for a specific xStock asset",
+        "SECURITY: Validates mint addresses to prevent malicious tokens"
       ],
       "discriminator": [
         48,
@@ -672,17 +675,209 @@
         {
           "name": "share_mint",
           "writable": true,
-          "signer": true
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  104,
+                  97,
+                  114,
+                  101,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              }
+            ]
+          }
         },
         {
           "name": "vault_token_account",
           "writable": true,
-          "signer": true
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "vault"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "underlying_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
         },
         {
           "name": "premium_token_account",
           "writable": true,
-          "signer": true
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "vault"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "premium_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
         },
         {
           "name": "share_escrow",
@@ -725,6 +920,10 @@
         {
           "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         },
         {
           "name": "rent",
@@ -927,7 +1126,8 @@
       "name": "process_withdrawal",
       "docs": [
         "Process withdrawal after epoch settles",
-        "SECURITY FIX H-3: Added min_expected_amount for slippage protection"
+        "SECURITY FIX H-3: Added min_expected_amount for slippage protection",
+        "SECURITY FIX M-3: Blocked when vault is paused"
       ],
       "discriminator": [
         51,
@@ -1173,6 +1373,60 @@
           }
         }
       ]
+    },
+    {
+      "name": "reconcile_premium_balance",
+      "docs": [
+        "Reconcile premium_balance_usdc state with actual token account balance",
+        "Use this to fix state drift caused by manual token movements or bugs",
+        "Authority only"
+      ],
+      "discriminator": [
+        49,
+        2,
+        198,
+        176,
+        1,
+        107,
+        109,
+        20
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.asset_id",
+                "account": "Vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault_premium_account"
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "vault"
+          ]
+        }
+      ],
+      "args": []
     },
     {
       "name": "record_notional_exposure",
@@ -1708,6 +1962,19 @@
       ]
     },
     {
+      "name": "PremiumBalanceReconciledEvent",
+      "discriminator": [
+        226,
+        48,
+        86,
+        114,
+        81,
+        234,
+        106,
+        18
+      ]
+    },
+    {
       "name": "PremiumCollectedEvent",
       "discriminator": [
         76,
@@ -1903,6 +2170,11 @@
       "code": 6025,
       "name": "VaultStillExists",
       "msg": "Vault still exists - close it first before cleaning up token accounts"
+    },
+    {
+      "code": 6026,
+      "name": "InvalidTokenAccountOwner",
+      "msg": "Token account is not owned by the expected vault PDA"
     }
   ],
   "types": [
@@ -2073,6 +2345,29 @@
           {
             "name": "unlock_time",
             "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PremiumBalanceReconciledEvent",
+      "docs": [
+        "Event emitted when premium balance is reconciled"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "old_balance",
+            "type": "u64"
+          },
+          {
+            "name": "new_balance",
+            "type": "u64"
           }
         ]
       }

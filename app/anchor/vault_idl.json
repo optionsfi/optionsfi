@@ -630,7 +630,8 @@
     {
       "name": "initialize_vault",
       "docs": [
-        "Initialize a new vault for a specific xStock asset"
+        "Initialize a new vault for a specific xStock asset",
+        "SECURITY: Validates mint addresses to prevent malicious tokens"
       ],
       "discriminator": [
         48,
