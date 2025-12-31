@@ -324,6 +324,77 @@ cd app && npm run lint
 - Single port for HTTP and WebSocket
 - Set `PORT` environment variable
 
+## Security Infrastructure
+
+### Institutional-Grade Security System
+
+OptionsFi implements comprehensive security across all layers:
+
+**Security Module Location:** `infra/security/`
+
+**Components:**
+1. **Mint Registry** (`mint-registry.ts`)
+   - Multi-tier classification (Verified → Banned)
+   - Automatic risk assessment
+   - On-chain metadata validation
+   - Import/export functionality
+
+2. **Rate Limiter** (`rate-limiter.ts`)
+   - IP-based and API key-based limiting
+   - Auto-blocking after 5 violations
+   - Configurable tiers (10-1000 req/min)
+   - Automatic cleanup
+
+3. **Data Validator** (`validator.ts`)
+   - Type, range, format validation
+   - SQL/XSS/Command injection prevention
+   - Solana address validation
+   - Predefined schemas
+
+4. **Security Monitor** (`monitoring.ts`)
+   - Real-time threat detection
+   - Anomaly detection
+   - Security metrics dashboard
+   - Alert system
+
+**Integration Points:**
+- RFQ Router: Rate limiting + input validation
+- Keeper: Operation validation + error sanitization
+- Smart Contract: Mint validation + whitelist enforcement
+
+**Security Patterns:**
+```typescript
+// Rate limiting middleware
+app.use(rateLimitMiddleware);
+
+// Input validation
+app.post("/rfq", validateRFQ, (req, res) => {
+  // Process validated input
+});
+
+// Security monitoring
+monitor.logEvent({
+  type: ThreatType.INVALID_INPUT,
+  level: ThreatLevel.MEDIUM,
+  source: req.ip,
+  details: { errors },
+  action: 'blocked'
+});
+```
+
+**Threat Detection:**
+- Rate limit abuse
+- SQL injection attempts
+- XSS attacks
+- Brute force attempts
+- Malicious token mints
+- Request burst patterns
+
+**Security Endpoints:**
+- `/security/metrics` - View security metrics
+- Real-time monitoring dashboard
+- Alert system integration
+
 ## Security Considerations
 
 ### Smart Contract Security

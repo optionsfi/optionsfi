@@ -1,0 +1,228 @@
+---
+title: 'Security Overview'
+description: 'Institutional-grade security infrastructure for OptionsFi'
+icon: 'shield'
+---
+
+## Overview
+
+OptionsFi implements a comprehensive, multi-layered security architecture designed to protect against common attacks and ensure safe operation of the protocol.
+
+## Security Layers
+
+<CardGroup cols={2}>
+  <Card title="Input Validation" icon="filter">
+    Comprehensive validation and sanitization to prevent injection attacks
+  </Card>
+  <Card title="Rate Limiting" icon="gauge">
+    Multi-tier rate limiting with automatic blocking for abuse
+  </Card>
+  <Card title="Mint Registry" icon="list-check">
+    Whitelist/blacklist system for token mint validation
+  </Card>
+  <Card title="Threat Monitoring" icon="radar">
+    Real-time detection and alerting for security events
+  </Card>
+</CardGroup>
+
+## Security Components
+
+### Mint Registry
+
+The mint registry provides multi-tier classification for token mints:
+
+- **Verified**: KYC'd, institutional grade tokens
+- **Trusted**: Well-known tokens in production use
+- **Standard**: Default tier for new mints
+- **Suspicious**: Flagged for review
+- **Banned**: Blacklisted, all transactions rejected
+
+**Risk Indicators Detected:**
+- Freeze authority present (DeFi red flag)
+- Mint authority present (inflation risk)
+- Unusually low total supply
+- Missing or invalid metadata
+
+### Rate Limiting
+
+Prevents abuse with configurable limits:
+
+| Tier | Limit | Use Case |
+|------|-------|----------|
+| Public | 10 req/min | Unauthenticated users |
+| Authenticated | 100 req/min | Registered users |
+| Market Maker | 100 req/min | MM quote submissions |
+| Admin | 1000 req/min | Administrative operations |
+
+**Auto-Blocking:**
+- 5 violations = 1 hour ban
+- Violations tracked per IP
+- Manual unblock available
+
+### Input Validation
+
+Protects against common attacks:
+
+<AccordionGroup>
+  <Accordion title="SQL Injection Prevention">
+    Detects and blocks SQL injection patterns:
+    - UNION SELECT statements
+    - DROP/DELETE commands
+    - OR 1=1 patterns
+    - Comment injection (--;)
+  </Accordion>
+
+  <Accordion title="XSS Prevention">
+    Blocks cross-site scripting attempts:
+    - Script tag injection
+    - Event handler attributes
+    - JavaScript protocol
+    - iFrame/embed tags
+  </Accordion>
+
+  <Accordion title="Command Injection Prevention">
+    Sanitizes shell command input:
+    - Removes dangerous characters (;|`$)
+    - Validates file paths
+    - Sanitizes user input
+  </Accordion>
+</AccordionGroup>
+
+### Security Monitoring
+
+Real-time threat detection and logging:
+
+**Event Types Tracked:**
+- Rate limit violations
+- Invalid input attempts
+- Blacklisted mint access
+- SQL injection attempts
+- XSS attempts
+- Brute force patterns
+- Unusual transaction patterns
+
+**Threat Levels:**
+- **Info**: Normal operations
+- **Low**: Minor violations
+- **Medium**: Suspicious activity
+- **High**: Active attacks
+- **Critical**: Severe threats
+
+## On-Chain Security
+
+### Smart Contract Protections
+
+**Vault Program Security:**
+- Mint validation on initialization
+- Freeze authority detection
+- Whitelist enforcement for settlements
+- Settlement caps at epoch premium
+- Timelock for parameter changes (24 hours)
+- Emergency pause mechanism
+
+**Access Controls:**
+- Authority-only operations
+- Market maker whitelist system
+- Signer validation on all instructions
+
+### Settlement Security
+
+**Production-Ready Settlement System:**
+- Market maker wallet tracking throughout RFQ lifecycle
+- Whitelist validation before payments
+- Settlement amount caps at premium earned
+- Complete audit trail
+- Graceful fallback mechanisms
+
+## Security Metrics
+
+Monitor security in real-time:
+
+```bash
+# Get security metrics
+curl http://localhost:3005/security/metrics
+```
+
+**Metrics Provided:**
+- Total security events
+- Events by type and severity
+- Blocked requests count
+- Unique sources
+- Top threats and sources
+- Timeline visualization
+
+## Integration
+
+<Steps>
+  <Step title="Install Dependencies">
+    ```bash
+    cd infra/security
+    npm install
+    ```
+  </Step>
+
+  <Step title="Configure Environment">
+    ```bash
+    SECURITY_RATE_LIMIT_ENABLED=true
+    SECURITY_VALIDATION_STRICT=true
+    SECURITY_MONITORING_ENABLED=true
+    SECURITY_ALERT_WEBHOOK_URL=https://your-webhook.com
+    ```
+  </Step>
+
+  <Step title="Initialize Components">
+    ```typescript
+    import { MintRegistry, RateLimiter, SecurityMonitor } from '@optionsfi/security';
+
+    const registry = new MintRegistry(connection, logger);
+    const limiter = new RateLimiter(config, logger);
+    const monitor = new SecurityMonitor(logger, alertConfig);
+    ```
+  </Step>
+</Steps>
+
+## Best Practices
+
+<Warning>
+  Always validate inputs before processing and monitor security metrics regularly.
+</Warning>
+
+<Check>
+  **Security Checklist:**
+  - ✅ Rate limiting enabled on all endpoints
+  - ✅ Input validation for all user inputs
+  - ✅ Mint registry initialized with verified mints
+  - ✅ Security monitoring active
+  - ✅ Alert system configured
+  - ✅ Audit logs exported regularly
+</Check>
+
+## Incident Response
+
+In case of security events:
+
+1. **Detection**: Security monitor logs event
+2. **Classification**: Threat level assigned
+3. **Alert**: Notifications sent (if configured)
+4. **Response**: Automatic blocking (if rate limit violated)
+5. **Audit**: Event recorded for review
+
+## Security Updates
+
+The security infrastructure is continuously updated:
+- Regular vulnerability scans
+- Dependency updates
+- Pattern updates for new attack vectors
+- Performance optimizations
+
+## Support
+
+For security concerns or questions:
+- Review security metrics regularly
+- Check audit logs for suspicious activity
+- Configure alerts for critical events
+- Export logs for compliance
+
+<Note>
+  All security events are logged with timestamps, sources, and details for complete audit trails.
+</Note>

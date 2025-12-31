@@ -199,6 +199,117 @@ MM Connection (with wallet) → Router validates → Quote includes wallet
 
 ---
 
+## Security Architecture
+
+### Institutional-Grade Security System
+
+OptionsFi implements a comprehensive, multi-layered security architecture:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SECURITY LAYERS                          │
+├─────────────────────────────────────────────────────────────┤
+│ Layer 1: Input Validation & Sanitization                   │
+│   - Type checking, range validation                         │
+│   - SQL/XSS/Command injection prevention                    │
+│   - Solana address format validation                        │
+│                                                              │
+│ Layer 2: Rate Limiting                                      │
+│   - IP-based limiting (10-1000 req/min)                     │
+│   - Auto-blocking after 5 violations                        │
+│   - Per-endpoint limits                                     │
+│                                                              │
+│ Layer 3: Mint Registry                                      │
+│   - Whitelist/blacklist management                          │
+│   - Multi-tier risk classification                          │
+│   - On-chain metadata validation                            │
+│                                                              │
+│ Layer 4: Security Monitoring                                │
+│   - Real-time threat detection                              │
+│   - Anomaly detection                                       │
+│   - Automated alerting                                      │
+│                                                              │
+│ Layer 5: On-Chain Security                                  │
+│   - Whitelist validation                                    │
+│   - Settlement caps                                         │
+│   - Timelock for changes                                    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Security Components
+
+**1. Mint Registry (`infra/security/mint-registry.ts`)**
+- Validates token mints before vault operations
+- Detects suspicious indicators (freeze authority, mint authority)
+- Multi-tier classification system
+- Cache system with automatic refresh
+
+**2. Rate Limiter (`infra/security/rate-limiter.ts`)**
+- Prevents abuse and DDoS attacks
+- Configurable limits per tier
+- Automatic violation tracking and blocking
+- Cleanup of old records
+
+**3. Data Validator (`infra/security/validator.ts`)**
+- Comprehensive input validation
+- Attack prevention (SQL injection, XSS, command injection)
+- Predefined schemas for RFQ and vault operations
+- Sensitive data redaction
+
+**4. Security Monitor (`infra/security/monitoring.ts`)**
+- Real-time event logging
+- Threat classification (5 levels: Info → Critical)
+- Anomaly detection algorithms
+- Security metrics aggregation
+- Alert system integration
+
+### Integration Points
+
+**RFQ Router:**
+- Rate limiting middleware on all endpoints
+- Input validation for RFQ creation
+- Security metrics endpoint
+- Attack pattern detection
+
+**Keeper Service:**
+- Input validation for vault operations
+- Operation rate limiting
+- Error sanitization
+- Security event logging
+
+**Smart Contract:**
+- Mint validation on vault initialization
+- Whitelist enforcement for settlements
+- Parameter change timelock
+- Emergency pause mechanism
+
+### Threat Detection
+
+The system detects and responds to:
+- ✅ Rate limit abuse
+- ✅ SQL injection attempts
+- ✅ XSS attacks
+- ✅ Brute force attempts
+- ✅ Malicious token mints
+- ✅ Request burst patterns
+- ✅ Excessive event generation
+
+### Monitoring & Alerts
+
+**Metrics Available:**
+- Total security events
+- Events by type and severity
+- Blocked requests count
+- Unique sources
+- Top threats and sources
+- Timeline visualization
+
+**Alert Triggers:**
+- High/Critical severity events
+- Multiple violations from single source
+- Attack pattern detection
+- Anomaly detection
+
 ## Security Model
 
 ### On-Chain Protections

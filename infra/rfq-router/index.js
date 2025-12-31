@@ -13,11 +13,21 @@ const express = require("express");
 const { WebSocketServer } = require("ws");
 const { v4: uuidv4 } = require("uuid");
 const http = require("http");
+const { 
+    rateLimitMiddleware, 
+    validateRFQ, 
+    getSecurityMetrics,
+    logger,
+    monitor 
+} = require("./security-middleware");
 
 const PORT = process.env.PORT || 3005;
 
 const app = express();
 app.use(express.json());
+
+// SECURITY: Apply rate limiting to all routes
+app.use(rateLimitMiddleware);
 
 // ============================================================================
 // Environment Configuration
@@ -323,7 +333,11 @@ function broadcastToMakers(message) {
 
 // REST API
 
-app.post("/rfq", (req, res) => {
+// SECURITY: Security metrics endpoint
+app.get("/security/metrics", getSecurityMetrics);
+
+// Create RFQ (with input validation)
+app.post("/rfq", validateRFQ, (req, res) => {
     const { 
         underlying, 
         optionType, 
