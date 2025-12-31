@@ -2,16 +2,14 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy package files from infra/keeper (Railway uses repo root as context)
-COPY infra/keeper/package*.json ./
-
-# Install dependencies
+# Copy package files and install dependencies
+COPY infra/keeper/package.json infra/keeper/package-lock.json ./
 RUN npm ci
 
-# Copy source and config
-COPY infra/keeper/src ./src
-COPY infra/keeper/idl ./idl
-COPY infra/keeper/tsconfig.json ./
+# Copy all source files in one layer
+COPY infra/keeper/src/ ./src/
+COPY infra/keeper/idl/ ./idl/
+COPY infra/keeper/tsconfig.json ./tsconfig.json
 
 # Build TypeScript
 RUN npm run build
