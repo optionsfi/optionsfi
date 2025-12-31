@@ -2,11 +2,11 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json package-lock.json ./
+# Copy only package.json (let npm generate fresh lock)
+COPY package.json ./
 
-# Clean npm cache and install dependencies
-RUN npm cache clean --force && npm install --legacy-peer-deps
+# Install dependencies
+RUN npm install
 
 # Copy source files
 COPY src/ ./src/
