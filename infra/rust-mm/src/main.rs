@@ -141,14 +141,37 @@ async fn connect_to_router(
 
     // Use a channel to send messages from logic to the socket writer
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Message>();
+    
+    // Channel for raw WebSocket messages (pings)
+    let (raw_tx, mut raw_rx) = tokio::sync::mpsc::unbounded_channel::<tokio_tungstenite::tungstenite::Message>();
 
-    // Spawn Writer Task
+    // Spawn Writer Task - handles both JSON messages and raw WebSocket messages
     let write_task = tokio::spawn(async move {
-        while let Some(msg) = rx.recv().await {
-            let json = serde_json::to_string(&msg).unwrap();
-            if let Err(e) = write.send(tokio_tungstenite::tungstenite::Message::Text(json)).await {
-                error!("Failed to send message: {}", e);
-                break;
+        let mut ping_interval = tokio::time::interval(tokio::time::Duration::from_secs(30));
+        loop {
+            tokio::select! {
+                // Send JSON messages
+                Some(msg) = rx.recv() => {
+                    let json = serde_json::to_string(&msg).unwrap();
+                    if let Err(e) = write.send(tokio_tungstenite::tungstenite::Message::Text(json)).await {
+                        error!("Failed to send message: {}", e);
+                        break;
+                    }
+                }
+                // Send raw WebSocket messages (pong responses)
+                Some(raw_msg) = raw_rx.recv() => {
+                    if let Err(e) = write.send(raw_msg).await {
+                        error!("Failed to send raw message: {}", e);
+                        break;
+                    }
+                }
+                // Send periodic ping to keep connection alive
+                _ = ping_interval.tick() => {
+                    if let Err(e) = write.send(tokio_tungstenite::tungstenite::Message::Ping(vec![])).await {
+                        error!("Failed to send ping: {}", e);
+                        break;
+                    }
+                }
             }
         }
     });
@@ -156,6 +179,22 @@ async fn connect_to_router(
     // Read Loop
     while let Some(msg_result) = read.next().await {
         let msg = msg_result?;
+        
+        // Handle WebSocket control frames
+        if msg.is_ping() {
+            // Respond to ping with pong
+            let _ = raw_tx.send(tokio_tungstenite::tungstenite::Message::Pong(msg.into_data()));
+            continue;
+        }
+        if msg.is_pong() {
+            // Pong received, connection is alive
+            continue;
+        }
+        if msg.is_close() {
+            info!("📡 Connection closed by server");
+            break;
+        }
+        
         if msg.is_text() {
             let text = msg.to_text()?;
 
