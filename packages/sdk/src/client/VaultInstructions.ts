@@ -159,6 +159,9 @@ export class VaultInstructions {
             throw new Error('Client not initialized. Call initialize() first.');
         }
 
+        // Fetch vault to get token account (needed for gulping pattern)
+        const vault = await (this.program.account as any).vault.fetch(params.vault);
+
         return await this.program.methods
             .recordNotionalExposure(
                 new anchor.BN(params.notionalTokens.toString()),
@@ -166,6 +169,7 @@ export class VaultInstructions {
             )
             .accounts({
                 vault: params.vault,
+                vaultTokenAccount: vault.vaultTokenAccount,
                 authority: params.authority,
             })
             .instruction();
