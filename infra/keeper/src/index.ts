@@ -423,8 +423,8 @@ async function runEpochRollForVault(assetId: string, preFetchedPrice?: OraclePri
                     });
                 }
             } catch (oracleError: any) {
-                logger.error("Oracle failed, falling back to legacy method", { 
-                    error: oracleError.message 
+                logger.error("Oracle failed, falling back to legacy method", {
+                    error: oracleError.message
                 });
                 // Fall through to legacy method
             }
@@ -450,12 +450,12 @@ async function runEpochRollForVault(assetId: string, preFetchedPrice?: OraclePri
         logger.info("Step 5: Calculating premium...");
         let premiumPerToken: number;
         let premiumBps: number;
-        
+
         if (useOracleMinPremium && oraclePricing) {
             // Use oracle min premium
             premiumPerToken = oraclePricing.minPremium;
             premiumBps = premiumToBps(premiumPerToken, spotPrice);
-            
+
             logger.info("Using oracle-calculated premium", {
                 fairValue: `$${oraclePricing.fairValue.toFixed(4)}`,
                 minPremium: `$${oraclePricing.minPremium.toFixed(4)}`,
@@ -537,24 +537,24 @@ async function runEpochRollForVault(assetId: string, preFetchedPrice?: OraclePri
             if (fillResponse.data.filled) {
                 actualPremium = fillResponse.data.filled.premium / 1e6; // Convert from base units
                 rfqFilled = true;
-                
+
                 // Store MM wallet info for settlement
                 const mmWallet = fillResponse.data.filled.makerWallet;
                 const mmUsdcAccount = fillResponse.data.filled.usdcAccount;
-                
+
                 logger.info("RFQ filled", {
                     maker: fillResponse.data.filled.maker,
                     makerWallet: mmWallet,
                     premium: actualPremium.toFixed(2),
                 });
-                
+
                 // Store in vault stats for later settlement
                 let stats = state.vaultStats.get(assetId);
                 if (!stats) {
-                    stats = { 
-                        epochStrikePrice: 0, 
-                        epochNotional: BigInt(0), 
-                        epochPremiumEarned: BigInt(0) 
+                    stats = {
+                        epochStrikePrice: 0,
+                        epochNotional: BigInt(0),
+                        epochPremiumEarned: BigInt(0)
                     };
                     state.vaultStats.set(assetId, stats);
                 }
@@ -810,10 +810,10 @@ async function runSettlement(targetAssetId?: string): Promise<{ success: boolean
             // Check if we have MM wallet info from the RFQ fill
             const mmWallet = stats?.marketMakerWallet;
             const mmUsdcAccount = stats?.marketMakerUsdcAccount;
-            
+
             let recipient: PublicKey;
             let recipientTokenAccount: PublicKey;
-            
+
             if (mmWallet && mmUsdcAccount) {
                 // Use actual MM wallet from RFQ
                 recipient = new PublicKey(mmWallet);
@@ -944,22 +944,8 @@ async function initialize(): Promise<void> {
     await state.onchainClient.initialize();
     logger.info("On-chain client initialized");
 
-    // Ensure Demo vault has short duration for testing (3 mins)
-    for (const assetId of config.assetIds) {
-        if (assetId.toLowerCase().includes("demo")) {
-            try {
-                logger.info(`Checking duration for ${assetId}...`);
-                const vault = await state.onchainClient.fetchVault(assetId);
-                if (vault && vault.minEpochDuration !== BigInt(180)) {
-                    logger.info(`Updating ${assetId} minEpochDuration to 180s...`);
-                    await state.onchainClient.setMinEpochDuration(assetId, 180);
-                    logger.info(`✅ ${assetId} updated`);
-                }
-            } catch (err: any) {
-                logger.warn(`Could not update demo duration for ${assetId}: ${err.message}`);
-            }
-        }
-    }
+    // Note: Demo vault duration can be configured via queue_param_change if needed
+    // Direct param changes are deprecated in favor of the timelock system
 }
 
 // ============================================================================
