@@ -1,12 +1,5 @@
 {
     "$schema": "https://railway.app/railway.schema.json",
-    "build": {
-        "watchPatterns": [
-            "src/**",
-            "Cargo.toml",
-            "Dockerfile"
-        ]
-    },
     "deploy": {
         "startCommand": "rust-mm",
         "restartPolicyType": "ON_FAILURE",
