@@ -13,12 +13,12 @@ const express = require("express");
 const { WebSocketServer } = require("ws");
 const { v4: uuidv4 } = require("uuid");
 const http = require("http");
-const { 
-    rateLimitMiddleware, 
-    validateRFQ, 
+const {
+    rateLimitMiddleware,
+    validateRFQ,
     getSecurityMetrics,
     logger,
-    monitor 
+    monitor
 } = require("./security-middleware");
 
 const PORT = process.env.PORT || 3005;
@@ -193,17 +193,17 @@ wss.on("connection", (ws, req) => {
     }
 
     const makerId = auth.makerId;
-    
+
     // Extract wallet and USDC account from URL params
     const url = new URL(req.url, `http://${req.headers.host}`);
     const wallet = url.searchParams.get("wallet");
     const usdcAccount = url.searchParams.get("usdcAccount");
-    
+
     // Validate wallet and USDC account are provided
     if (!wallet || !usdcAccount) {
         console.log(`Maker ${makerId} connection rejected: missing wallet or USDC account`);
-        logEvent("maker_rejected", { 
-            reason: "missing_wallet_info", 
+        logEvent("maker_rejected", {
+            reason: "missing_wallet_info",
             makerId,
             hasWallet: !!wallet,
             hasUsdcAccount: !!usdcAccount
@@ -211,9 +211,9 @@ wss.on("connection", (ws, req) => {
         ws.close(4001, "Missing wallet or usdcAccount query parameters");
         return;
     }
-    
+
     console.log(`Maker authenticated: ${makerId} (wallet: ${wallet})`);
-    
+
     // Store maker with wallet information
     makers.set(makerId, {
         ws,
@@ -221,11 +221,11 @@ wss.on("connection", (ws, req) => {
         usdcAccount,
         connectedAt: Date.now()
     });
-    
-    logEvent("maker_connected", { 
-        makerId, 
+
+    logEvent("maker_connected", {
+        makerId,
         wallet,
-        totalMakers: makers.size 
+        totalMakers: makers.size
     });
 
     ws.on("message", (data) => {
@@ -279,7 +279,7 @@ function handleMakerMessage(makerId, msg) {
         const makerInfo = makers.get(makerId);
         const makerWallet = makerInfo?.wallet || null;
         const usdcAccount = makerInfo?.usdcAccount || null;
-        
+
         // Check for duplicate quotes from same maker
         const existingQuote = rfq.quotes.find(q => q.maker === makerId);
         if (existingQuote) {
@@ -301,9 +301,9 @@ function handleMakerMessage(makerId, msg) {
             });
         }
 
-        logEvent("quote_received", { 
-            rfqId: msg.rfqId, 
-            maker: makerId, 
+        logEvent("quote_received", {
+            rfqId: msg.rfqId,
+            maker: makerId,
             premium: msg.premium / 1e6,
             quoteCount: rfq.quotes.length,
             minQuotes: rfq.minQuotes
@@ -338,12 +338,12 @@ app.get("/security/metrics", getSecurityMetrics);
 
 // Create RFQ (with input validation)
 app.post("/rfq", validateRFQ, (req, res) => {
-    const { 
-        underlying, 
-        optionType, 
-        strike, 
-        expiry, 
-        size, 
+    const {
+        underlying,
+        optionType,
+        strike,
+        expiry,
+        size,
         premiumFloor,
         vaultAddress,
         anonymous = false,
@@ -372,15 +372,15 @@ app.post("/rfq", validateRFQ, (req, res) => {
     };
 
     rfqs.set(rfqId, rfq);
-    logEvent("rfq_created", { 
-        rfqId, 
-        underlying, 
-        optionType, 
-        strike, 
-        size, 
+    logEvent("rfq_created", {
+        rfqId,
+        underlying,
+        optionType,
+        strike,
+        size,
         anonymous,
         minQuotes,
-        makerCount: makers.size 
+        makerCount: makers.size
     });
 
     // Broadcast to all connected makers
@@ -395,11 +395,11 @@ app.post("/rfq", validateRFQ, (req, res) => {
         vaultAddress: rfq.vaultAddress, // null if anonymous
         quoteDeadline: rfq.expiresAt,
     };
-    
+
     broadcastToMakers(broadcastData);
 
-    res.json({ 
-        rfqId, 
+    res.json({
+        rfqId,
         status: "open",
         broadcastedTo: makers.size,
         minQuotes,
@@ -412,10 +412,10 @@ app.get("/rfq/:rfqId", (req, res) => {
     if (!rfq) {
         return res.status(404).json({ error: "RFQ not found" });
     }
-    
+
     // Calculate time remaining
     const timeRemaining = Math.max(0, rfq.expiresAt - Date.now());
-    
+
     res.json({
         ...rfq,
         timeRemaining,
@@ -441,21 +441,21 @@ app.post("/rfq/:rfqId/wait", async (req, res) => {
         return new Promise((resolve) => {
             const interval = setInterval(() => {
                 const elapsed = Date.now() - startTime;
-                
+
                 // Check if we have enough quotes
                 if (rfq.quotes.length >= targetQuotes) {
                     clearInterval(interval);
                     resolve({ success: true, reason: 'target_met' });
                     return;
                 }
-                
+
                 // Check if RFQ expired
                 if (Date.now() > rfq.expiresAt) {
                     clearInterval(interval);
                     resolve({ success: false, reason: 'rfq_expired' });
                     return;
                 }
-                
+
                 // Check if timeout reached
                 if (elapsed >= maxWait) {
                     clearInterval(interval);
@@ -467,7 +467,7 @@ app.post("/rfq/:rfqId/wait", async (req, res) => {
     };
 
     const result = await checkQuotes();
-    
+
     res.json({
         rfqId: rfq.rfqId,
         success: result.success,
@@ -489,11 +489,11 @@ app.post("/rfq/:rfqId/fill", (req, res) => {
     }
 
     if (rfq.filled) {
-        return res.json({ 
-            rfqId: rfq.rfqId, 
+        return res.json({
+            rfqId: rfq.rfqId,
             status: 'filled',
             filled: rfq.filled,
-            totalQuotes: rfq.quotes.length 
+            totalQuotes: rfq.quotes.length
         });
     }
 
@@ -501,31 +501,31 @@ app.post("/rfq/:rfqId/fill", (req, res) => {
     if (Date.now() > rfq.expiresAt) {
         rfq.status = 'expired';
         logEvent("rfq_expired", { rfqId: rfq.rfqId, quoteCount: rfq.quotes.length });
-        return res.json({ 
-            rfqId: rfq.rfqId, 
+        return res.json({
+            rfqId: rfq.rfqId,
             status: 'expired',
-            filled: null, 
+            filled: null,
             message: "RFQ expired",
-            totalQuotes: rfq.quotes.length 
+            totalQuotes: rfq.quotes.length
         });
     }
 
     if (rfq.quotes.length === 0) {
-        return res.json({ 
-            rfqId: rfq.rfqId, 
+        return res.json({
+            rfqId: rfq.rfqId,
             status: 'open',
-            filled: null, 
+            filled: null,
             message: "No quotes received",
-            connectedMakers: makers.size 
+            connectedMakers: makers.size
         });
     }
 
     // Check minimum quotes requirement
     if (rfq.quotes.length < rfq.minQuotes) {
-        return res.json({ 
-            rfqId: rfq.rfqId, 
+        return res.json({
+            rfqId: rfq.rfqId,
             status: 'open',
-            filled: null, 
+            filled: null,
             message: `Waiting for more quotes (${rfq.quotes.length}/${rfq.minQuotes})`,
             quotes: rfq.quotes.length
         });
@@ -533,17 +533,17 @@ app.post("/rfq/:rfqId/fill", (req, res) => {
 
     // Filter valid quotes (above floor and not expired)
     const now = Date.now();
-    const validQuotes = rfq.quotes.filter(q => 
-        q.premium >= rfq.premiumFloor && 
+    const validQuotes = rfq.quotes.filter(q =>
+        q.premium >= rfq.premiumFloor &&
         (!q.validUntil || q.validUntil > now)
     );
 
     if (validQuotes.length === 0) {
         rfq.status = 'no_valid_quotes';
-        return res.json({ 
-            rfqId: rfq.rfqId, 
+        return res.json({
+            rfqId: rfq.rfqId,
             status: 'no_valid_quotes',
-            filled: null, 
+            filled: null,
             message: "No quotes above floor or all quotes expired",
             totalQuotes: rfq.quotes.length,
             validQuotes: 0
@@ -565,18 +565,18 @@ app.post("/rfq/:rfqId/fill", (req, res) => {
     };
     rfq.status = 'filled';
 
-    logEvent("rfq_filled", { 
-        rfqId: rfq.rfqId, 
-        maker: bestQuote.maker, 
+    logEvent("rfq_filled", {
+        rfqId: rfq.rfqId,
+        maker: bestQuote.maker,
         premium: bestQuote.premium / 1e6,
         totalQuotes: rfq.quotes.length,
         validQuotes: validQuotes.length
     });
 
     // Notify winning maker
-    const makerWs = makers.get(bestQuote.maker);
-    if (makerWs) {
-        makerWs.send(JSON.stringify({
+    const makerInfo = makers.get(bestQuote.maker);
+    if (makerInfo && makerInfo.ws) {
+        makerInfo.ws.send(JSON.stringify({
             type: "fill",
             rfqId: rfq.rfqId,
             premium: bestQuote.premium,
@@ -586,9 +586,9 @@ app.post("/rfq/:rfqId/fill", (req, res) => {
 
     // Notify losing makers
     for (const quote of rankedQuotes.slice(1)) {
-        const loserWs = makers.get(quote.maker);
-        if (loserWs) {
-            loserWs.send(JSON.stringify({
+        const loserInfo = makers.get(quote.maker);
+        if (loserInfo && loserInfo.ws) {
+            loserInfo.ws.send(JSON.stringify({
                 type: "rfq_lost",
                 rfqId: rfq.rfqId,
                 yourQuote: quote.premium,
@@ -597,8 +597,8 @@ app.post("/rfq/:rfqId/fill", (req, res) => {
         }
     }
 
-    res.json({ 
-        rfqId: rfq.rfqId, 
+    res.json({
+        rfqId: rfq.rfqId,
         status: 'filled',
         filled: rfq.filled,
         totalQuotes: rfq.quotes.length,
