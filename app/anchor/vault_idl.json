@@ -2175,6 +2175,11 @@
       "code": 6026,
       "name": "InvalidTokenAccountOwner",
       "msg": "Token account is not owned by the expected vault PDA"
+    },
+    {
+      "code": 6027,
+      "name": "DuplicateAccount",
+      "msg": "Duplicate account detected - accounts must be unique"
     }
   ],
   "types": [

@@ -1,13 +1,13 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer, MintTo, Burn};
 use anchor_spl::associated_token::AssociatedToken;
+use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer};
 
 declare_id!("A4jgqct3bwTwRmHECHdPpbH3a8ksaVb7rny9pMUGFo94");
 
 // Metaplex Token Metadata Program ID
 const METADATA_PROGRAM_ID: Pubkey = Pubkey::new_from_array([
-    11, 112, 101, 177, 227, 209, 124, 69, 56, 157, 82, 127, 107, 4, 195, 205,
-    88, 184, 108, 115, 26, 160, 253, 181, 73, 182, 209, 188, 3, 248, 41, 70,
+    11, 112, 101, 177, 227, 209, 124, 69, 56, 157, 82, 127, 107, 4, 195, 205, 88, 184, 108, 115,
+    26, 160, 253, 181, 73, 182, 209, 188, 3, 248, 41, 70,
 ]);
 
 #[program]
@@ -30,7 +30,7 @@ pub mod vault {
             // In production, you might want to reject this
             // return err!(VaultError::SuspiciousMint);
         }
-        
+
         // SECURITY: Validate premium mint (USDC)
         // Premium mint should be a known stablecoin
         let premium_mint_key = ctx.accounts.premium_mint.key();
@@ -72,13 +72,16 @@ pub mod vault {
 
         // Calculate shares to mint
         // effective_total_shares = total_shares + virtual_offset
-        let effective_shares = vault.total_shares.checked_add(vault.virtual_offset).ok_or(VaultError::Overflow)?;
-        
+        let effective_shares = vault
+            .total_shares
+            .checked_add(vault.virtual_offset)
+            .ok_or(VaultError::Overflow)?;
+
         let shares_to_mint = if effective_shares == 0 {
             // First deposit: set virtual offset (no real shares minted)
             // Virtual offset prevents share price manipulation attacks
             vault.virtual_offset = 1000;
-            
+
             // User gets full value - no tokens "lost"
             // shares = amount * (total_shares + virtual_offset) / total_assets
             // But total_assets is 0, so we use 1:1 initially
@@ -86,7 +89,7 @@ pub mod vault {
         } else {
             // SECURITY FIX M-2: Explicit division by zero check
             require!(vault.total_assets > 0, VaultError::DivisionByZero);
-            
+
             // shares = amount * effective_shares / total_assets
             (amount as u128)
                 .checked_mul(effective_shares as u128)
@@ -112,11 +115,7 @@ pub mod vault {
 
         // Mint vault shares to user
         let asset_id = vault.asset_id.as_bytes();
-        let seeds = &[
-            b"vault",
-            asset_id,
-            &[vault.bump],
-        ];
+        let seeds = &[b"vault", asset_id, &[vault.bump]];
         let signer_seeds = &[&seeds[..]];
 
         token::mint_to(
@@ -133,10 +132,12 @@ pub mod vault {
         )?;
 
         // Update vault state
-        vault.total_assets = vault.total_assets
+        vault.total_assets = vault
+            .total_assets
             .checked_add(amount)
             .ok_or(VaultError::Overflow)?;
-        vault.total_shares = vault.total_shares
+        vault.total_shares = vault
+            .total_shares
             .checked_add(shares_to_mint)
             .ok_or(VaultError::Overflow)?;
 
@@ -194,7 +195,8 @@ pub mod vault {
         withdrawal.request_epoch = vault.epoch;
         withdrawal.processed = false;
 
-        vault.pending_withdrawals = vault.pending_withdrawals
+        vault.pending_withdrawals = vault
+            .pending_withdrawals
             .checked_add(shares)
             .ok_or(VaultError::Overflow)?;
 
@@ -211,7 +213,10 @@ pub mod vault {
     /// Process withdrawal after epoch settles
     /// SECURITY FIX H-3: Added min_expected_amount for slippage protection
     /// SECURITY FIX M-3: Blocked when vault is paused
-    pub fn process_withdrawal(ctx: Context<ProcessWithdrawal>, min_expected_amount: u64) -> Result<()> {
+    pub fn process_withdrawal(
+        ctx: Context<ProcessWithdrawal>,
+        min_expected_amount: u64,
+    ) -> Result<()> {
         let withdrawal = &mut ctx.accounts.withdrawal_request;
         let vault = &mut ctx.accounts.vault;
 
@@ -228,11 +233,14 @@ pub mod vault {
 
         // Calculate underlying amount to return using effective shares
         // effective_shares = total_shares + virtual_offset
-        let effective_shares = vault.total_shares.checked_add(vault.virtual_offset).ok_or(VaultError::Overflow)?;
-        
+        let effective_shares = vault
+            .total_shares
+            .checked_add(vault.virtual_offset)
+            .ok_or(VaultError::Overflow)?;
+
         // SECURITY FIX M-2: Explicit division by zero check
         require!(effective_shares > 0, VaultError::DivisionByZero);
-        
+
         let amount = (shares as u128)
             .checked_mul(vault.total_assets as u128)
             .ok_or(VaultError::Overflow)?
@@ -240,10 +248,7 @@ pub mod vault {
             .ok_or(VaultError::Overflow)? as u64;
 
         // SECURITY FIX H-3: Slippage protection - user specifies minimum acceptable amount
-        require!(
-            amount >= min_expected_amount,
-            VaultError::SlippageExceeded
-        );
+        require!(amount >= min_expected_amount, VaultError::SlippageExceeded);
 
         // SECURITY FIX H-1: Verify vault has sufficient assets
         require!(
@@ -253,11 +258,7 @@ pub mod vault {
 
         // Burn user's shares
         let asset_id = vault.asset_id.as_bytes();
-        let seeds = &[
-            b"vault",
-            asset_id,
-            &[vault.bump],
-        ];
+        let seeds = &[b"vault", asset_id, &[vault.bump]];
         let signer_seeds = &[&seeds[..]];
 
         token::burn(
@@ -302,7 +303,7 @@ pub mod vault {
                 // This prevents "insufficient funds" errors if state drifts from actual balance
                 let actual_premium_balance = ctx.accounts.vault_premium_account.amount;
                 let capped_premium_share = user_premium_share.min(actual_premium_balance);
-                
+
                 if capped_premium_share > 0 {
                     // Transfer USDC to user
                     token::transfer(
@@ -319,13 +320,17 @@ pub mod vault {
                     )?;
 
                     // Deduct capped amount from vault state
-                    vault.premium_balance_usdc = vault.premium_balance_usdc
+                    vault.premium_balance_usdc = vault
+                        .premium_balance_usdc
                         .checked_sub(capped_premium_share)
                         .ok_or(VaultError::Overflow)?;
-                    
+
                     if capped_premium_share < user_premium_share {
-                        msg!("WARNING: Premium capped from {} to {} due to balance drift", 
-                            user_premium_share, capped_premium_share);
+                        msg!(
+                            "WARNING: Premium capped from {} to {} due to balance drift",
+                            user_premium_share,
+                            capped_premium_share
+                        );
                     }
                     msg!("Withdrew premium share: {} USDC", capped_premium_share);
                 }
@@ -333,13 +338,16 @@ pub mod vault {
         }
 
         // Update vault state
-        vault.total_assets = vault.total_assets
+        vault.total_assets = vault
+            .total_assets
             .checked_sub(amount)
             .ok_or(VaultError::Overflow)?;
-        vault.total_shares = vault.total_shares
+        vault.total_shares = vault
+            .total_shares
             .checked_sub(shares)
             .ok_or(VaultError::Overflow)?;
-        vault.pending_withdrawals = vault.pending_withdrawals
+        vault.pending_withdrawals = vault
+            .pending_withdrawals
             .checked_sub(shares)
             .ok_or(VaultError::Overflow)?;
 
@@ -379,17 +387,17 @@ pub mod vault {
         // 3. Implied Yield Check
         // If we have exposure, check that implied yield (premium / exposure) isn't insane (e.g., > 20% flat)
         if vault.epoch_notional_exposed > 0 {
-             let yield_bps = (premium_earned as u128)
+            let yield_bps = (premium_earned as u128)
                 .checked_mul(10000)
                 .ok_or(VaultError::Overflow)?
                 .checked_div(vault.epoch_notional_exposed as u128)
                 .ok_or(VaultError::Overflow)?;
-            
+
             // 2000 bps = 20% return in a single epoch. That's extremely high.
             require!(yield_bps <= 2000, VaultError::ExcessiveYield);
         } else {
             // No exposure => no premium expected (or very small)
-             require!(premium_earned == 0, VaultError::ExcessivePremium);
+            require!(premium_earned == 0, VaultError::ExcessivePremium);
         }
 
         // Store epoch stats before resetting
@@ -398,13 +406,12 @@ pub mod vault {
 
         // Credit premium to USDC balance (separate from underlying TVL)
         // This prevents the "flywheel" effect of synthetic token creation
-        vault.premium_balance_usdc = vault.premium_balance_usdc
+        vault.premium_balance_usdc = vault
+            .premium_balance_usdc
             .checked_add(premium_earned)
             .ok_or(VaultError::Overflow)?;
-        
-        vault.epoch = vault.epoch
-            .checked_add(1)
-            .ok_or(VaultError::Overflow)?;
+
+        vault.epoch = vault.epoch.checked_add(1).ok_or(VaultError::Overflow)?;
         vault.last_roll_timestamp = clock.unix_timestamp;
 
         // Reset epoch tracking for new epoch
@@ -442,7 +449,8 @@ pub mod vault {
             .checked_div(10000)
             .ok_or(VaultError::Overflow)? as u64;
 
-        let new_exposure = vault.epoch_notional_exposed
+        let new_exposure = vault
+            .epoch_notional_exposed
             .checked_add(notional_tokens)
             .ok_or(VaultError::Overflow)?;
 
@@ -453,7 +461,8 @@ pub mod vault {
 
         // Update epoch tracking
         vault.epoch_notional_exposed = new_exposure;
-        vault.epoch_premium_earned = vault.epoch_premium_earned
+        vault.epoch_premium_earned = vault
+            .epoch_premium_earned
             .checked_add(premium)
             .ok_or(VaultError::Overflow)?;
 
@@ -463,7 +472,8 @@ pub mod vault {
                 .checked_mul(10000)
                 .ok_or(VaultError::Overflow)?
                 .checked_div(vault.epoch_notional_exposed as u128)
-                .ok_or(VaultError::Overflow)?) as u32;
+                .ok_or(VaultError::Overflow)?)
+                as u32;
         }
 
         emit!(NotionalExposureEvent {
@@ -501,7 +511,8 @@ pub mod vault {
         )?;
 
         // SECURITY FIX M-1b: Track collected premium in vault state
-        vault.epoch_premium_earned = vault.epoch_premium_earned
+        vault.epoch_premium_earned = vault
+            .epoch_premium_earned
             .checked_add(amount)
             .ok_or(VaultError::Overflow)?;
 
@@ -524,7 +535,9 @@ pub mod vault {
         // SECURITY FIX C-1: Verify recipient is whitelisted BEFORE transfer
         let whitelist = &ctx.accounts.whitelist;
         require!(
-            whitelist.market_makers.contains(&ctx.accounts.recipient.key()),
+            whitelist
+                .market_makers
+                .contains(&ctx.accounts.recipient.key()),
             VaultError::NotWhitelisted
         );
 
@@ -536,11 +549,7 @@ pub mod vault {
         );
 
         let asset_id = vault.asset_id.as_bytes();
-        let seeds = &[
-            b"vault",
-            asset_id,
-            &[vault.bump],
-        ];
+        let seeds = &[b"vault", asset_id, &[vault.bump]];
         let signer_seeds = &[&seeds[..]];
 
         token::transfer(
@@ -576,11 +585,7 @@ pub mod vault {
     ) -> Result<()> {
         let vault = &ctx.accounts.vault;
         let asset_id = vault.asset_id.as_bytes();
-        let seeds = &[
-            b"vault",
-            asset_id,
-            &[vault.bump],
-        ];
+        let seeds = &[b"vault", asset_id, &[vault.bump]];
         let signer_seeds = &[&seeds[..]];
 
         // Build the CreateMetadataAccountV3 instruction
@@ -609,7 +614,7 @@ pub mod vault {
                 data: data_v2,
                 is_mutable: true,
                 collection_details: None,
-            }
+            },
         );
 
         anchor_lang::solana_program::program::invoke_signed(
@@ -626,7 +631,10 @@ pub mod vault {
             signer_seeds,
         )?;
 
-        msg!("Created metadata for share token: {}", ctx.accounts.share_mint.key());
+        msg!(
+            "Created metadata for share token: {}",
+            ctx.accounts.share_mint.key()
+        );
         Ok(())
     }
 
@@ -643,27 +651,39 @@ pub mod vault {
     /// Add a market maker to the whitelist
     pub fn add_market_maker(ctx: Context<AddMarketMaker>, market_maker: Pubkey) -> Result<()> {
         let whitelist = &mut ctx.accounts.whitelist;
-        require!(whitelist.market_makers.len() < 10, VaultError::WhitelistFull);
-        require!(!whitelist.market_makers.contains(&market_maker), VaultError::AlreadyWhitelisted);
+        require!(
+            whitelist.market_makers.len() < 10,
+            VaultError::WhitelistFull
+        );
+        require!(
+            !whitelist.market_makers.contains(&market_maker),
+            VaultError::AlreadyWhitelisted
+        );
 
         whitelist.market_makers.push(market_maker);
         Ok(())
     }
 
     /// SECURITY FIX M-4: Remove a market maker from the whitelist
-    pub fn remove_market_maker(ctx: Context<RemoveMarketMaker>, market_maker: Pubkey) -> Result<()> {
+    pub fn remove_market_maker(
+        ctx: Context<RemoveMarketMaker>,
+        market_maker: Pubkey,
+    ) -> Result<()> {
         let whitelist = &mut ctx.accounts.whitelist;
-        
-        let position = whitelist.market_makers.iter().position(|&mm| mm == market_maker);
+
+        let position = whitelist
+            .market_makers
+            .iter()
+            .position(|&mm| mm == market_maker);
         require!(position.is_some(), VaultError::NotWhitelisted);
-        
+
         whitelist.market_makers.remove(position.unwrap());
-        
+
         emit!(MarketMakerRemovedEvent {
             vault: ctx.accounts.vault.key(),
             market_maker,
         });
-        
+
         Ok(())
     }
 
@@ -672,13 +692,13 @@ pub mod vault {
     pub fn set_pause(ctx: Context<SetPause>, paused: bool) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
         vault.is_paused = paused;
-        
+
         emit!(VaultPausedEvent {
             vault: vault.key(),
             paused,
             timestamp: Clock::get()?.unix_timestamp,
         });
-        
+
         Ok(())
     }
 
@@ -691,7 +711,7 @@ pub mod vault {
     ) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
         let clock = Clock::get()?;
-        
+
         // Store pending changes
         if let Some(duration) = new_min_epoch_duration {
             vault.pending_min_epoch_duration = duration;
@@ -700,18 +720,21 @@ pub mod vault {
             require!(cap <= 10000, VaultError::InvalidParameter); // Max 100%
             vault.pending_utilization_cap = cap;
         }
-        
+
         // Set execution time (24 hours from now)
         const TIMELOCK_DURATION: i64 = 86400; // 24 hours
-        vault.param_change_unlock_time = clock.unix_timestamp + TIMELOCK_DURATION;
-        
+        vault.param_change_unlock_time = clock
+            .unix_timestamp
+            .checked_add(TIMELOCK_DURATION)
+            .ok_or(VaultError::Overflow)?;
+
         emit!(ParamChangeQueuedEvent {
             vault: vault.key(),
             new_min_epoch_duration,
             new_utilization_cap_bps,
             unlock_time: vault.param_change_unlock_time,
         });
-        
+
         Ok(())
     }
 
@@ -719,13 +742,14 @@ pub mod vault {
     pub fn execute_param_change(ctx: Context<SetParam>) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
         let clock = Clock::get()?;
-        
+
         // Check timelock has passed
         require!(
-            vault.param_change_unlock_time > 0 && clock.unix_timestamp >= vault.param_change_unlock_time,
+            vault.param_change_unlock_time > 0
+                && clock.unix_timestamp >= vault.param_change_unlock_time,
             VaultError::TimelockNotExpired
         );
-        
+
         // Apply pending changes
         if vault.pending_min_epoch_duration > 0 {
             vault.min_epoch_duration = vault.pending_min_epoch_duration;
@@ -733,29 +757,29 @@ pub mod vault {
         if vault.pending_utilization_cap > 0 {
             vault.utilization_cap_bps = vault.pending_utilization_cap;
         }
-        
+
         emit!(ParamChangeExecutedEvent {
             vault: vault.key(),
             new_min_epoch_duration: vault.min_epoch_duration,
             new_utilization_cap_bps: vault.utilization_cap_bps,
         });
-        
+
         // Reset pending state
         vault.pending_min_epoch_duration = 0;
         vault.pending_utilization_cap = 0;
         vault.param_change_unlock_time = 0;
-        
+
         Ok(())
     }
 
     /// Cancel a queued parameter change
     pub fn cancel_param_change(ctx: Context<SetParam>) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
-        
+
         vault.pending_min_epoch_duration = 0;
         vault.pending_utilization_cap = 0;
         vault.param_change_unlock_time = 0;
-        
+
         Ok(())
     }
 
@@ -778,17 +802,21 @@ pub mod vault {
         let vault = &mut ctx.accounts.vault;
         let old_balance = vault.premium_balance_usdc;
         let actual_balance = ctx.accounts.vault_premium_account.amount;
-        
+
         vault.premium_balance_usdc = actual_balance;
-        
-        msg!("Reconciled premium balance: {} -> {}", old_balance, actual_balance);
-        
+
+        msg!(
+            "Reconciled premium balance: {} -> {}",
+            old_balance,
+            actual_balance
+        );
+
         emit!(PremiumBalanceReconciledEvent {
             vault: vault.key(),
             old_balance,
             new_balance: actual_balance,
         });
-        
+
         Ok(())
     }
 
@@ -796,13 +824,13 @@ pub mod vault {
     /// Vault must be empty (no assets, shares, or pending withdrawals)
     pub fn close_vault(ctx: Context<CloseVault>) -> Result<()> {
         let vault = &ctx.accounts.vault;
-        
+
         // Safety checks - vault must be completely empty
         require!(vault.total_assets == 0, VaultError::VaultNotEmpty);
         require!(vault.total_shares == 0, VaultError::VaultNotEmpty);
         require!(vault.pending_withdrawals == 0, VaultError::VaultNotEmpty);
         require!(vault.epoch_notional_exposed == 0, VaultError::VaultNotEmpty);
-        
+
         // Account will be closed automatically by Anchor's close constraint
         Ok(())
     }
@@ -815,19 +843,20 @@ pub mod vault {
         let authority = &ctx.accounts.authority;
 
         // Verify the PDA matches what we expect
-        let (expected_pda, _bump) = Pubkey::find_program_address(
-            &[b"vault", asset_id.as_bytes()],
-            ctx.program_id,
+        let (expected_pda, _bump) =
+            Pubkey::find_program_address(&[b"vault", asset_id.as_bytes()], ctx.program_id);
+        require!(
+            vault_account.key() == expected_pda,
+            VaultError::InvalidVaultPda
         );
-        require!(vault_account.key() == expected_pda, VaultError::InvalidVaultPda);
 
         // SECURITY FIX C-2: Verify caller is the vault authority
         // Authority is stored at bytes 8-40 (after 8-byte discriminator)
         let vault_data = vault_account.try_borrow_data()?;
         require!(vault_data.len() >= 40, VaultError::InvalidVaultPda);
-        
-        let stored_authority = Pubkey::try_from(&vault_data[8..40])
-            .map_err(|_| VaultError::InvalidVaultPda)?;
+
+        let stored_authority =
+            Pubkey::try_from(&vault_data[8..40]).map_err(|_| VaultError::InvalidVaultPda)?;
         require!(
             stored_authority == authority.key(),
             VaultError::UnauthorizedForceClose
@@ -837,21 +866,26 @@ pub mod vault {
         // Transfer all lamports to authority
         let vault_lamports = vault_account.lamports();
         **vault_account.try_borrow_mut_lamports()? = 0;
-        **authority.try_borrow_mut_lamports()? = authority.lamports()
+        **authority.try_borrow_mut_lamports()? = authority
+            .lamports()
             .checked_add(vault_lamports)
             .ok_or(VaultError::Overflow)?;
 
         // Zero out the account data
         vault_account.try_borrow_mut_data()?.fill(0);
 
-        msg!("Force closed vault {} - returned {} lamports", asset_id, vault_lamports);
+        msg!(
+            "Force closed vault {} - returned {} lamports",
+            asset_id,
+            vault_lamports
+        );
         Ok(())
     }
 
     /// Close an orphaned token account that was owned by a vault PDA
     /// This is used to clean up old share escrows, vault token accounts, etc.
     /// after a vault has been force-closed, enabling reuse of asset IDs.
-    /// 
+    ///
     /// The caller must provide the correct asset_id that was used to derive the vault PDA.
     /// The vault PDA must NOT exist anymore (force-closed).
     pub fn close_orphaned_token_account(
@@ -862,10 +896,8 @@ pub mod vault {
         let authority = &ctx.accounts.authority;
 
         // Derive vault PDA - this is the owner of the orphaned token account
-        let (vault_pda, bump) = Pubkey::find_program_address(
-            &[b"vault", asset_id.as_bytes()],
-            ctx.program_id,
-        );
+        let (vault_pda, bump) =
+            Pubkey::find_program_address(&[b"vault", asset_id.as_bytes()], ctx.program_id);
 
         // Verify the vault no longer exists
         require!(
@@ -900,7 +932,11 @@ pub mod vault {
             signer_seeds,
         ))?;
 
-        msg!("Closed orphaned token account {} for vault {}", token_account.key(), asset_id);
+        msg!(
+            "Closed orphaned token account {} for vault {}",
+            token_account.key(),
+            asset_id
+        );
         Ok(())
     }
 }
@@ -1054,13 +1090,15 @@ pub struct Deposit<'info> {
 
     #[account(
         mut,
-        token::mint = vault.underlying_mint
+        token::mint = vault.underlying_mint,
+        constraint = user_token_account.key() != vault_token_account.key() @ VaultError::DuplicateAccount
     )]
     pub user_token_account: Account<'info, TokenAccount>,
 
     #[account(
         mut,
-        token::mint = vault.share_mint
+        token::mint = vault.share_mint,
+        constraint = user_share_account.key() != share_escrow.key() @ VaultError::DuplicateAccount
     )]
     pub user_share_account: Account<'info, TokenAccount>,
 
@@ -1143,7 +1181,8 @@ pub struct ProcessWithdrawal<'info> {
 
     #[account(
         mut,
-        token::mint = vault.underlying_mint
+        token::mint = vault.underlying_mint,
+        constraint = user_token_account.key() != vault_token_account.key() @ VaultError::DuplicateAccount
     )]
     pub user_token_account: Account<'info, TokenAccount>,
 
@@ -1162,7 +1201,8 @@ pub struct ProcessWithdrawal<'info> {
     #[account(
         mut,
         associated_token::mint = premium_mint,
-        associated_token::authority = user
+        associated_token::authority = user,
+        constraint = user_premium_account.key() != vault_premium_account.key() @ VaultError::DuplicateAccount
     )]
     pub user_premium_account: Account<'info, TokenAccount>,
 
@@ -1221,7 +1261,9 @@ pub struct CollectPremium<'info> {
 
     #[account(
         mut,
-        token::mint = vault.premium_mint
+        token::mint = vault.premium_mint,
+        // SECURITY: Prevent duplicate account attack
+        constraint = payer_token_account.key() != vault_premium_account.key() @ VaultError::DuplicateAccount
     )]
     pub payer_token_account: Account<'info, TokenAccount>,
 
@@ -1258,7 +1300,8 @@ pub struct PaySettlement<'info> {
 
     #[account(
         mut,
-        token::mint = vault.premium_mint
+        token::mint = vault.premium_mint,
+        constraint = recipient_token_account.key() != vault_premium_account.key() @ VaultError::DuplicateAccount
     )]
     pub recipient_token_account: Account<'info, TokenAccount>,
 
@@ -1628,4 +1671,6 @@ pub enum VaultError {
     VaultStillExists,
     #[msg("Token account is not owned by the expected vault PDA")]
     InvalidTokenAccountOwner,
+    #[msg("Duplicate account detected - accounts must be unique")]
+    DuplicateAccount,
 }
